@@ -1,0 +1,217 @@
+{
+  "clients": [
+    {
+      "id": "acf777d4-37bb-44d4-b62f-103efea7ad6c",
+      "name": "CyberSecure Ltd",
+      "contactEmail": "",
+      "logoUrl": "",
+      "createdAt": "2025-11-28T15:49:41.978Z"
+    },
+    {
+      "id": "25425e48-c846-434a-8346-74079372a01a",
+      "name": "CyberSecure Ltd",
+      "contactEmail": "",
+      "logoUrl": "",
+      "createdAt": "2025-11-28T15:50:09.797Z"
+    },
+    {
+      "id": "88de5a72-b0ce-47c5-9e51-d0cf0b93aaaa",
+      "name": "CyberSecure Ltd",
+      "contactEmail": "",
+      "logoUrl": "",
+      "createdAt": "2025-11-28T15:52:23.503Z"
+    }
+  ],
+  "projects": [
+    {
+      "id": "27c08bae-1bfd-4e97-8bcb-f60dbe569983",
+      "clientId": "acf777d4-37bb-44d4-b62f-103efea7ad6c",
+      "name": "Auditoría CIS v8 Inicial 2024",
+      "createdAt": "2025-11-28T15:54:36.524Z",
+      "controls": [
+        {
+          "id": 1,
+          "name": "Inventario y Control de Activos Empresariales",
+          "activities": []
+        },
+        {
+          "id": 2,
+          "name": "Inventario y Control de Activos de Software",
+          "activities": []
+        },
+        {
+          "id": 3,
+          "name": "Protección de Datos",
+          "activities": []
+        },
+        {
+          "id": 4,
+          "name": "Configuración Segura de Activos y Software",
+          "activities": []
+        },
+        {
+          "id": 5,
+          "name": "Gestión de Cuentas",
+          "activities": []
+        },
+        {
+          "id": 6,
+          "name": "Gestión del Control de Acceso",
+          "activities": []
+        },
+        {
+          "id": 7,
+          "name": "Gestión Continua de Vulnerabilidades",
+          "activities": []
+        },
+        {
+          "id": 8,
+          "name": "Gestión de Registros de Auditoría",
+          "activities": []
+        },
+        {
+          "id": 9,
+          "name": "Protecciones de Correo Electrónico y Navegador Web",
+          "activities": []
+        },
+        {
+          "id": 10,
+          "name": "Defensas contra Malware",
+          "activities": []
+        },
+        {
+          "id": 11,
+          "name": "Recuperación de Datos",
+          "activities": []
+        },
+        {
+          "id": 12,
+          "name": "Gestión de Infraestructura de Red",
+          "activities": []
+        },
+        {
+          "id": 13,
+          "name": "Monitorización y Defensa de Red",
+          "activities": []
+        },
+        {
+          "id": 14,
+          "name": "Concientización y Capacitación en Seguridad",
+          "activities": []
+        },
+        {
+          "id": 15,
+          "name": "Gestión de Proveedores de Servicios",
+          "activities": []
+        },
+        {
+          "id": 16,
+          "name": "Seguridad del Software de Aplicación",
+          "activities": []
+        },
+        {
+          "id": 17,
+          "name": "Gestión de Respuesta a Incidentes",
+          "activities": []
+        },
+        {
+          "id": 18,
+          "name": "Pruebas de Penetración",
+          "activities": []
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "id": 1,
+      "name": "Inventario y Control de Activos Empresariales",
+      "activities": []
+    },
+    {
+      "id": 2,
+      "name": "Inventario y Control de Activos de Software",
+      "activities": []
+    },
+    {
+      "id": 3,
+      "name": "Protección de Datos",
+      "activities": []
+    },
+    {
+      "id": 4,
+      "name": "Configuración Segura de Activos y Software",
+      "activities": []
+    },
+    {
+      "id": 5,
+      "name": "Gestión de Cuentas",
+      "activities": []
+    },
+    {
+      "id": 6,
+      "name": "Gestión del Control de Acceso",
+      "activities": []
+    },
+    {
+      "id": 7,
+      "name": "Gestión Continua de Vulnerabilidades",
+      "activities": []
+    },
+    {
+      "id": 8,
+      "name": "Gestión de Registros de Auditoría",
+      "activities": []
+    },
+    {
+      "id": 9,
+      "name": "Protecciones de Correo Electrónico y Navegador Web",
+      "activities": []
+    },
+    {
+      "id": 10,
+      "name": "Defensas contra Malware",
+      "activities": []
+    },
+    {
+      "id": 11,
+      "name": "Recuperación de Datos",
+      "activities": []
+    },
+    {
+      "id": 12,
+      "name": "Gestión de Infraestructura de Red",
+      "activities": []
+    },
+    {
+      "id": 13,
+      "name": "Monitorización y Defensa de Red",
+      "activities": []
+    },
+    {
+      "id": 14,
+      "name": "Concientización y Capacitación en Seguridad",
+      "activities": []
+    },
+    {
+      "id": 15,
+      "name": "Gestión de Proveedores de Servicios",
+      "activities": []
+    },
+    {
+      "id": 16,
+      "name": "Seguridad del Software de Aplicación",
+      "activities": []
+    },
+    {
+      "id": 17,
+      "name": "Gestión de Respuesta a Incidentes",
+      "activities": []
+    },
+    {
+      "id": 18,
+      "name": "Pruebas de Penetración",
+      "activities": []
+    }
+  ]
+}
