@@ -1,0 +1,21 @@
+time="2025-11-29T00:11:29-03:00" level=warning msg="C:\\Users\\Almer\\Desktop\\Hacknoid Dash\\audit-platform-cis\\docker-compose.dev.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+ Container audit-db  Running
+ Container audit-api  Running
+
+> client@0.0.0 dev
+> vite
+
+You are using Node.js 18.20.8. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+error when starting dev server:
+TypeError: crypto.hash is not a function
+    at getHash (file:///app/node_modules/vite/dist/node/chunks/config.js:2680:21)
+    at getLockfileHash (file:///app/node_modules/vite/dist/node/chunks/config.js:33031:9)
+    at getDepHash (file:///app/node_modules/vite/dist/node/chunks/config.js:33034:23)
+    at initDepsOptimizerMetadata (file:///app/node_modules/vite/dist/node/chunks/config.js:32493:53)
+    at createDepsOptimizer (file:///app/node_modules/vite/dist/node/chunks/config.js:34681:17)
+    at new DevEnvironment (file:///app/node_modules/vite/dist/node/chunks/config.js:35455:109)
+    at Object.defaultCreateClientDevEnvironment [as createEnvironment] (file:///app/node_modules/vite/dist/node/chunks/config.js:35867:9)
+    at file:///app/node_modules/vite/dist/node/chunks/config.js:26036:52
+    at Array.map (<anonymous>)
+    at _createServer (file:///app/node_modules/vite/dist/node/chunks/config.js:26035:58)
+

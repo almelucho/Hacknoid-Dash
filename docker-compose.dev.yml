@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # --- Base de Datos (MongoDB) ---
+  audit-db:
+    image: mongo:latest
+    container_name: audit-db
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - audit-network
+
+  # --- Backend (Node.js API) ---
+  audit-api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: audit-api
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://audit-db:27017/audit_platform
+      - NODE_ENV=development
+    depends_on:
+      - audit-db
+    networks:
+      - audit-network
+
+  # --- Frontend (React + Vite) ---
+  audit-web:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: audit-web
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    depends_on:
+      - audit-api
+    networks:
+      - audit-network
+
+networks:
+  audit-network:
+    driver: bridge
+
+volumes:
+  mongo_data:
