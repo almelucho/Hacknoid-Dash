@@ -20,17 +20,18 @@
 - [x] 2.3. Crear Dashboard de Clientes.
 - [x] 2.4. Crear Vista de Auditoría (Acordeón de Controles).
 
-## 🧮 Fase 3: Lógica y Cálculo
-- [ ] 3.1. CRUD de Actividades (Editar estado, notas).
-- [ ] 3.2. Implementar lógica de cálculo de porcentajes.
-- [ ] 3.3. Configurar Socket.io para actualizaciones en tiempo real.
+## � Fase 3: Lógica y Cálculo
+- [x] 3.1. CRUD de Actividades (Editar estado, notas).
+- [x] 3.2. Motor de Cálculo (Porcentajes y Promedios).
+- [x] 3.3. Gestión de Controles y Salvaguardas (CRUD).
+- [x] 3.4. Lógica de "No Aplica" (N/A).
 
 ## 📎 Fase 4: Gestión de Archivos
 - [ ] 4.1. Configurar Multer (Backend) para subida de archivos.
 - [ ] 4.2. Implementar Storage Adapter (Local/S3).
 - [ ] 4.3. Crear componente de Upload en Frontend.
 
-## 🤖 Fase 5: Agente IA (Gemini)
+## �🤖 Fase 5: Agente IA (Gemini)
 - [ ] 5.1. Configurar cliente Gemini en Node.js.
 - [ ] 5.2. Crear "Tools" para la IA (crear proyecto, buscar control).
 - [ ] 5.3. Implementar Chat Widget en Frontend.
@@ -39,3 +40,28 @@
 - [ ] 6.1. Configurar Nginx para producción.
 - [ ] 6.2. Implementar generación de reportes PDF.
 - [ ] 6.3. Testing final y despliegue.
+
+---
+
+## 📅 Bitácora de Cambios (01/12/2025)
+
+### ✅ Frontend (UI/UX)
+- Implementación de **Navegación** entre Dashboard y Vista de Auditoría.
+- Creación de **AuditView** con jerarquía de 3 niveles (Control > Salvaguarda > Actividad).
+- Implementación de **Toggle N/A** para marcar salvaguardas como no aplicables.
+- Interfaz para **CRUD Manual**: Botones para crear/eliminar controles y salvaguardas.
+- **Mejora Visual de Actividades**:
+  - Botones de estado con texto y color (Completado, En Progreso, No Iniciado).
+  - Botón de eliminar actividad (visible al hover).
+
+### ✅ Backend (Lógica)
+- **Refactorización de Modelos**: Cambio a estructura anidada `Project -> Controls -> Safeguards -> Activities`.
+- **Motor de Cálculo**:
+  - Cálculo automático de porcentajes de salvaguardas.
+  - Promedio de controles excluyendo salvaguardas N/A.
+- **API Endpoints**:
+  - `POST /controls`, `DELETE /controls/:id`
+  - `POST /safeguards`, `DELETE /safeguards/:id`
+  - `PATCH /applicability` (Lógica N/A)
+  - `POST /activities`, `PATCH /activities/:id` (Status)
+- **Datos**: Actualización de `seed.js` con Control 1 de CIS v8.1 en español.

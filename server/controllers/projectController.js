@@ -1,48 +1,78 @@
 const Project = require('../models/Project');
 const CisTemplate = require('../models/CisTemplate');
 
+// --- MOTOR DE CÁLCULO MEJORADO (Soporte N/A) ---
+const recalculatePercentages = async (project, control, safeguard) => {
+
+    // 1. Calcular % de la Salvaguarda (Nivel 2)
+    const totalActs = safeguard.activities.length;
+    if (totalActs > 0) {
+        const sumStatus = safeguard.activities.reduce((acc, act) => acc + act.status, 0);
+        safeguard.percentage = Math.round(sumStatus / totalActs);
+    } else {
+        safeguard.percentage = 0;
+    }
+
+    // 2. Calcular % del Control (Nivel 1)
+    // Filtramos solo las que aplican (isApplicable === true)
+    const applicableSafeguards = control.safeguards.filter(s => s.isApplicable);
+    const totalApplicable = applicableSafeguards.length;
+
+    if (totalApplicable === 0) {
+        // Si NINGUNA salvaguarda aplica, el control tiene 100% (Cumple por defecto)
+        control.percentage = 100;
+    } else {
+        const sumSafeguardPerc = applicableSafeguards.reduce((acc, sg) => acc + sg.percentage, 0);
+        control.percentage = Math.round(sumSafeguardPerc / totalApplicable);
+    }
+
+    // (Opcional) Recalcular % Global del Proyecto aquí si fuera necesario
+};
+
 // POST: Crear un nuevo proyecto (Clonar la plantilla)
 exports.createProject = async (req, res) => {
     try {
         const { clientName, projectName, targetProfile } = req.body;
-        // targetProfile puede ser 'IG1', 'IG2' o 'IG3'
 
-        // 1. Buscamos la "Plantilla Maestra" (Los 18 Controles Oficiales)
+        // 1. Buscamos la "Plantilla Maestra"
         const templates = await CisTemplate.find().sort({ controlNumber: 1 });
-        console.log(`🔍 Debug: Found ${templates.length} templates in DB`);
 
         if (!templates.length) {
-            return res.status(500).json({ msg: "⚠️ Error: No hay plantillas CIS en la DB. Ejecuta 'node seed.js'" });
+            return res.status(500).json({ msg: "⚠️ Error: No hay plantillas CIS en la DB." });
         }
 
-        // 2. MAGIA: Clonamos y filtramos según el perfil (IG1/IG2/IG3)
+        // 2. Clonamos y adaptamos al nuevo esquema (Safeguard -> Activities)
         const projectControls = templates.map(template => {
-            // Filtramos las salvaguardas que apliquen al perfil seleccionado
-            const filteredActivities = template.safeguards
+            const filteredSafeguards = template.safeguards
                 .filter(sg => {
-                    // Lógica de herencia: IG3 incluye todo, IG2 incluye IG1, etc.
                     if (targetProfile === 'IG3') return sg.implementationGroups.ig3;
                     if (targetProfile === 'IG2') return sg.implementationGroups.ig2;
-                    return sg.implementationGroups.ig1; // Por defecto IG1
+                    return sg.implementationGroups.ig1;
                 })
                 .map(sg => ({
-                    templateRef: sg.originalId, // Guardamos referencia al ID original (ej: 1.1)
+                    templateRef: sg.originalId,
                     title: sg.title,
                     description: sg.description,
-                    status: 0,       // Empieza en 0%
+                    implementationGroup: targetProfile,
                     isApplicable: true,
-                    implementationGroup: targetProfile
+                    percentage: 0,
+                    // Creamos una actividad por defecto para poder evaluar la salvaguarda
+                    activities: [{
+                        title: "Evaluación de Cumplimiento",
+                        description: sg.description,
+                        status: 0
+                    }]
                 }));
 
             return {
                 controlNumber: template.controlNumber,
                 title: template.title,
-                activities: filteredActivities,
+                safeguards: filteredSafeguards,
                 percentage: 0
             };
         });
 
-        // 3. Guardamos el proyecto independiente para este cliente
+        // 3. Guardamos el proyecto
         const newProject = new Project({
             clientName,
             projectName,
@@ -59,12 +89,11 @@ exports.createProject = async (req, res) => {
     }
 };
 
-// GET: Obtener todos los proyectos (Para el Dashboard)
+// GET: Obtener todos los proyectos
 exports.getProjects = async (req, res) => {
     try {
         const projects = await Project.find().select('clientName projectName targetProfile createdAt controls');
 
-        // Calculamos un % global rápido para mostrar en el dashboard
         const projectsWithStats = projects.map(p => {
             const totalControls = p.controls.length;
             const globalProgress = p.controls.reduce((acc, curr) => acc + (curr.percentage || 0), 0) / (totalControls || 1);
@@ -80,7 +109,7 @@ exports.getProjects = async (req, res) => {
     }
 };
 
-// GET: Obtener un proyecto específico (Para la vista de Auditoría)
+// GET: Obtener un proyecto específico
 exports.getProjectById = async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
@@ -91,60 +120,211 @@ exports.getProjectById = async (req, res) => {
     }
 };
 
-// PATCH: Actualizar estado de una actividad y recalcular porcentajes
+// PATCH: Alternar estado de Aplicabilidad (N/A)
+exports.toggleSafeguardApplicability = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId } = req.params;
+        const { isApplicable, reason } = req.body;
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const safeguard = control.safeguards.id(safeguardId);
+
+        if (!safeguard) return res.status(404).json({ msg: "Salvaguarda no encontrada" });
+
+        // Actualizar estado
+        safeguard.isApplicable = isApplicable;
+        safeguard.nonApplicableReason = reason || "";
+
+        await recalculatePercentages(project, control, safeguard);
+        await project.save();
+
+        res.json({
+            msg: "Aplicabilidad actualizada",
+            controlPercentage: control.percentage,
+            safeguard: safeguard
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error actualizando aplicabilidad');
+    }
+};
+
+// PATCH: Actualizar estado de una actividad
 exports.updateActivityStatus = async (req, res) => {
     try {
+        // Nota: Ahora la ruta debe incluir safeguardId también, o debemos buscarla
+        // Ruta sugerida: /:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId
+        // Pero si mantenemos la ruta anterior, tendremos que buscar la actividad en todas las salvaguardas del control.
+        // Para simplificar y ser robustos, asumiremos que recibimos safeguardId en params o buscamos.
+
+        // Vamos a intentar buscar la actividad dentro del control iterando salvaguardas si no viene el ID.
         const { projectId, controlId, activityId } = req.params;
-        const { status } = req.body; // 0, 50, 100
+        const { status } = req.body;
 
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
 
-        // 1. Encontrar el control y la actividad específica
         const control = project.controls.id(controlId);
         if (!control) return res.status(404).json({ msg: "Control no encontrado" });
 
-        const activity = control.activities.id(activityId);
+        // Buscar la salvaguarda que contiene la actividad
+        let safeguard;
+        let activity;
+
+        // Si la ruta tiene safeguardId (ideal), úsalo. Si no, busca.
+        if (req.params.safeguardId) {
+            safeguard = control.safeguards.id(req.params.safeguardId);
+            if (safeguard) activity = safeguard.activities.id(activityId);
+        } else {
+            // Búsqueda profunda
+            for (const sg of control.safeguards) {
+                const act = sg.activities.id(activityId);
+                if (act) {
+                    safeguard = sg;
+                    activity = act;
+                    break;
+                }
+            }
+        }
+
         if (!activity) return res.status(404).json({ msg: "Actividad no encontrada" });
 
-        // 2. Actualizar el estado
+        // Actualizar estado
         activity.status = status;
 
-        // 3. --- MOTOR DE CÁLCULO (Según reglas CIS) ---
-
-        // A. Calcular porcentaje del CONTROL
-        // Filtrar solo las aplicables (excluir N/A si implementamos esa lógica futura)
-        const applicableActivities = control.activities.filter(a => a.isApplicable);
-        const totalPointsPossible = applicableActivities.length;
-
-        let earnedPoints = 0;
-        applicableActivities.forEach(act => {
-            if (act.status === 100) earnedPoints += 1;
-            else if (act.status === 50) earnedPoints += 0.5;
-            // 0% suma 0 puntos
-        });
-
-        // Evitar división por cero
-        control.percentage = totalPointsPossible === 0 ? 0 : Math.round((earnedPoints / totalPointsPossible) * 100);
-
-        // B. Calcular porcentaje GLOBAL del Proyecto (Promedio de los controles)
-        // Nota: Podríamos ponderar controles, pero por ahora es promedio simple
-        const totalControls = project.controls.length;
-        const sumPercentages = project.controls.reduce((acc, curr) => acc + curr.percentage, 0);
-
-        // Guardamos el global (si tuviéramos un campo en el schema raíz, si no, se calcula al vuelo)
-        // Para este MVP, el dashboard lo calcula al vuelo, así que con guardar el control basta.
-
+        // Recalcular
+        await recalculatePercentages(project, control, safeguard);
         await project.save();
 
         res.json({
             msg: "Estado actualizado",
             controlPercentage: control.percentage,
+            safeguardPercentage: safeguard.percentage,
             activityStatus: activity.status
         });
 
     } catch (error) {
         console.error("Error actualizando actividad:", error);
         res.status(500).send('Error del servidor');
+    }
+};
+
+// --- GESTIÓN DE CONTROLES (NIVEL 1) ---
+
+// 1. Crear un Nuevo Control Manual
+exports.addControl = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        const { title, description, controlNumber } = req.body;
+
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        // Crear nuevo control (array de salvaguardas vacío)
+        project.controls.push({
+            controlNumber: controlNumber || project.controls.length + 1,
+            title,
+            description,
+            safeguards: [],
+            percentage: 0
+        });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        res.status(500).send('Error creando control');
+    }
+};
+
+// 2. Eliminar un Control
+exports.deleteControl = async (req, res) => {
+    try {
+        const { projectId, controlId } = req.params;
+        await Project.updateOne(
+            { _id: projectId },
+            { $pull: { controls: { _id: controlId } } }
+        );
+        res.json({ msg: "Control eliminado" });
+    } catch (error) {
+        res.status(500).send('Error eliminando control');
+    }
+};
+
+// --- GESTIÓN DE SALVAGUARDAS (NIVEL 2) ---
+
+// 3. Crear una Salvaguarda Manual
+exports.addSafeguard = async (req, res) => {
+    try {
+        const { projectId, controlId } = req.params;
+        const { title, description } = req.body;
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+
+        if (!control) return res.status(404).json({ msg: "Control no encontrado" });
+
+        control.safeguards.push({
+            title,
+            description,
+            templateRef: "Manual",
+            isApplicable: true,
+            activities: [],
+            percentage: 0
+        });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error creando salvaguarda');
+    }
+};
+
+// 4. Eliminar una Salvaguarda
+exports.deleteSafeguard = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId } = req.params;
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+
+        // Usar método pull de Mongoose
+        control.safeguards.pull({ _id: safeguardId });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        res.status(500).send('Error eliminando salvaguarda');
+    }
+};
+
+// --- GESTIÓN DE ACTIVIDADES (NIVEL 3) ---
+
+// 5. Crear una Actividad Manual
+exports.addActivity = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId } = req.params;
+        const { title, description } = req.body;
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const safeguard = control.safeguards.id(safeguardId);
+
+        if (!safeguard) return res.status(404).json({ msg: "Salvaguarda no encontrada" });
+
+        safeguard.activities.push({
+            title,
+            description,
+            status: 0
+        });
+
+        await recalculatePercentages(project, control, safeguard);
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error creando actividad');
     }
 };
