@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import ProjectCard from './components/ProjectCard';
-import AuditView from './components/AuditView'; // <--- Importamos el componente nuevo
+import AuditView from './components/AuditView';
+import Login from './components/Login';
+import CreateProjectModal from './components/CreateProjectModal';
+import ClientsView from './components/ClientsView'; // <--- Importar // <--- 1. IMPORTAR
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false); // Estado de sesión
+  const [currentUser, setCurrentUser] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false); // 2. NUEVO ESTADO
+
   // Estado de navegación simple: 'dashboard' o 'audit'
   const [view, setView] = useState('dashboard');
   const [selectedProjectId, setSelectedProjectId] = useState(null);
@@ -33,10 +40,27 @@ function App() {
       });
   };
 
-  // Cargar al inicio
+  // Verificar si ya hay sesión al iniciar
   useEffect(() => {
-    loadProjects();
+    const token = localStorage.getItem('token');
+    if (token) {
+      setIsAuthenticated(true);
+      // Aquí podrías llamar a /api/auth/me para validar el token real
+      loadProjects(); // Cargar datos en background
+    }
   }, []);
+
+  const handleLoginSuccess = (user) => {
+    setCurrentUser(user);
+    setIsAuthenticated(true);
+    loadProjects();
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsAuthenticated(false);
+    setView('dashboard');
+  };
 
   // Manejador: Ir a Auditoría
   const handleOpenProject = (id) => {
@@ -51,9 +75,18 @@ function App() {
     loadProjects(); // Recargar datos para ver progresos actualizados
   };
 
+  // --- RENDERIZADO CONDICIONAL ---
+
+  // 1. Si no está logueado, mostrar Login
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLoginSuccess} />;
+  }
+
+  // 2. Si está logueado, mostrar la App Normal (Tu diseño intacto)
   return (
-    <div className="flex min-h-screen bg-brand-light font-sans">
-      <Sidebar />
+    <div className="flex min-h-screen bg-brand-light font-sans text-brand-dark">
+      {/* Pasar logout al sidebar si quieres implementarlo luego */}
+      <Sidebar onLogout={handleLogout} onNavigate={setView} />
 
       <main className="flex-1 ml-64 p-8 overflow-y-auto h-screen">
 
@@ -65,7 +98,9 @@ function App() {
                 <h2 className="text-3xl font-bold text-brand-dark">Dashboard General</h2>
                 <p className="text-gray-500 mt-1">Gestión de Auditorías CIS v8.1</p>
               </div>
-              <button className="bg-brand-orange text-white px-6 py-3 rounded-lg shadow-lg hover:bg-orange-700 transition-colors flex items-center gap-2 font-medium">
+              <button className="bg-brand-orange text-white px-6 py-3 rounded-lg shadow-lg hover:bg-orange-700 transition-colors flex items-center gap-2 font-medium"
+                onClick={() => setShowCreateModal(true)} // 3. BOTÓN ACTUALIZADO
+              >
                 <span>+</span> Nuevo Proyecto
               </button>
             </header>
@@ -108,7 +143,20 @@ function App() {
           />
         )}
 
+        {/* 4. 🔥 VISTA CLIENTES (NUEVA) */}
+        {view === 'clients' && <ClientsView />}
+
       </main>
+
+      {/* 4. RENDERIZAR MODAL */}
+      {showCreateModal && (
+        <CreateProjectModal
+          onClose={() => setShowCreateModal(false)}
+          onProjectCreated={() => {
+            loadProjects(); // Recargar lista
+          }}
+        />
+      )}
     </div>
   );
 }

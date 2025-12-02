@@ -1,11 +1,33 @@
 const mongoose = require('mongoose');
 
+// Esquema de Comentarios (Chat)
+const CommentSchema = new mongoose.Schema({
+    user: String,       // Nombre de quien comenta
+    role: String,       // Rol (Admin/Cliente)
+    text: String,
+    createdAt: { type: Date, default: Date.now }
+});
+
 // Nivel 3: Actividad
 const ActivitySchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: String,
     status: { type: Number, enum: [0, 50, 100], default: 0 },
-    evidenceFiles: [{ name: String, url: String }],
+
+    // --- NUEVOS CAMPOS ---
+    periodicity: {
+        type: String,
+        enum: ['Única', 'Semanal', 'Mensual', 'Trimestral', 'Anual'],
+        default: 'Única'
+    },
+    comments: [CommentSchema], // Caja de comentarios
+    // ---------------------
+
+    evidenceFiles: [{
+        name: String,
+        url: String,
+        uploadedAt: { type: Date, default: Date.now }
+    }],
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -34,7 +56,10 @@ const ProjectControlSchema = new mongoose.Schema({
 });
 
 const ProjectSchema = new mongoose.Schema({
-    clientName: { type: String, required: true },
+    // Vinculamos el Proyecto a un Cliente de la base de datos
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
+
+    clientName: { type: String, required: true }, // Mantenemos esto por facilidad visual
     projectName: { type: String, required: true },
     targetProfile: { type: String, enum: ['IG1', 'IG2', 'IG3'], default: 'IG1' },
     controls: [ProjectControlSchema],
