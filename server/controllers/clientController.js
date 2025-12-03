@@ -1,6 +1,36 @@
 const Client = require('../models/Client');
 const User = require('../models/User');
+const Project = require('../models/Project');
 const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose'); // <--- Importar mongoose
+
+// ... (resto del código)
+
+// 6. Eliminar Cliente (Con Cascada)
+// 6. Eliminar Cliente (Con Cascada)
+exports.deleteClient = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // 1. Verificar si existe
+        const client = await Client.findById(id);
+        if (!client) return res.status(404).json({ msg: "Cliente no encontrado" });
+
+        // 2. Borrar Proyectos asociados
+        await Project.deleteMany({ clientId: id });
+
+        // 3. Borrar Usuarios asociados
+        await User.deleteMany({ clientId: id });
+
+        // 4. Borrar Cliente
+        await Client.findByIdAndDelete(id);
+
+        res.json({ msg: "Cliente y todos sus datos asociados eliminados" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: "Error al eliminar cliente" });
+    }
+};
 
 // 1. Obtener todos los clientes
 exports.getClients = async (req, res) => {
@@ -100,3 +130,19 @@ exports.createUserForClient = async (req, res) => {
         res.status(500).json({ msg: "Error al crear usuario" });
     }
 };
+
+// 5. Actualizar Cliente
+exports.updateClient = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        const client = await Client.findByIdAndUpdate(id, { name }, { new: true });
+        if (!client) return res.status(404).json({ msg: "Cliente no encontrado" });
+        res.json(client);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: "Error al actualizar cliente" });
+    }
+};
+
+

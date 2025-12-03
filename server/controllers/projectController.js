@@ -671,3 +671,47 @@ exports.updateControlPolicy = async (req, res) => {
         res.json(project);
     } catch (error) { res.status(500).send('Error actualizando política de control'); }
 };
+
+// --- GESTIÓN DE PROYECTOS (NIVEL SUPERIOR) ---
+
+exports.updateProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { projectName, clientName } = req.body;
+
+        const project = await Project.findById(id);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        if (projectName) project.projectName = projectName;
+        if (clientName) project.clientName = clientName;
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: "Error al actualizar proyecto" });
+    }
+};
+
+exports.deleteProject = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const project = await Project.findByIdAndDelete(id);
+
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        // Opcional: Desvincular del cliente si es necesario, pero no es estrictamente obligatorio si el cliente tiene solo referencia
+        // Si el cliente tiene array de proyectos, deberíamos hacer pull
+        if (project.clientId) {
+            await Client.updateOne(
+                { _id: project.clientId },
+                { $pull: { projects: id } }
+            );
+        }
+
+        res.json({ msg: "Proyecto eliminado" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: "Error al eliminar proyecto" });
+    }
+};

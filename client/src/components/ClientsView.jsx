@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Plus, Upload, UserPlus } from 'lucide-react';
+import { Building, Plus, Upload, UserPlus, Pencil, Trash2 } from 'lucide-react';
 import CreateUserModal from './CreateUserModal';
 
 export default function ClientsView() {
@@ -39,6 +39,28 @@ export default function ClientsView() {
         if (res.ok) { setNewClientName(""); fetchClients(); }
     };
 
+    const handleEditClient = async (client) => {
+        const newName = prompt("Nuevo nombre del cliente:", client.name);
+        if (newName && newName !== client.name) {
+            await fetch(`${API_URL}/api/clients/${client._id}`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ name: newName })
+            });
+            fetchClients();
+        }
+    };
+
+    const handleDeleteClient = async (id) => {
+        if (confirm("¿Estás seguro de borrar este cliente? Se perderán sus datos.")) {
+            await fetch(`${API_URL}/api/clients/${id}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            fetchClients();
+        }
+    };
+
     const handleLogoUpload = async (e, clientId) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -71,7 +93,13 @@ export default function ClientsView() {
             {/* Lista */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {clients.map(client => (
-                    <div key={client._id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between">
+                    <div key={client._id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group flex flex-col justify-between relative">
+                        {/* Botones de Edición/Borrado (Absolute Top Right) */}
+                        <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => handleEditClient(client)} className="p-1 text-gray-400 hover:text-blue-500 bg-white rounded-full shadow-sm border border-gray-100"><Pencil size={16} /></button>
+                            <button onClick={() => handleDeleteClient(client._id)} className="p-1 text-gray-400 hover:text-red-500 bg-white rounded-full shadow-sm border border-gray-100"><Trash2 size={16} /></button>
+                        </div>
+
                         <div>
                             <div className="flex justify-between items-start mb-4">
                                 <div className="w-20 h-20 bg-gray-50 rounded-lg border border-gray-100 flex items-center justify-center overflow-hidden relative">
@@ -79,7 +107,7 @@ export default function ClientsView() {
                                     <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white"><Upload size={20} /><input type="file" className="hidden" onChange={(e) => handleLogoUpload(e, client._id)} /></label>
                                 </div>
                             </div>
-                            <h3 className="font-bold text-xl text-brand-dark">{client.name}</h3>
+                            <h3 className="font-bold text-xl text-brand-dark pr-8">{client.name}</h3>
                             <p className="text-sm text-gray-500 mt-1">{client.projects?.length || 0} Proyectos</p>
                         </div>
 

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Shield, Clock, ArrowRight } from 'lucide-react';
+import { Shield, Clock, ArrowRight, Pencil, Trash2 } from 'lucide-react';
 
-export default function ProjectCard({ project }) {
+export default function ProjectCard({ project, onEdit, onDelete }) {
     // Formatear fecha
     const fecha = new Date(project.createdAt).toLocaleDateString('es-ES', {
         day: 'numeric', month: 'short', year: 'numeric'
@@ -17,12 +17,30 @@ export default function ProjectCard({ project }) {
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all cursor-pointer group">
             <div className="flex justify-between items-start mb-4">
-                <div className="bg-brand-light p-3 rounded-full group-hover:bg-orange-50 transition-colors">
-                    <Shield className="text-brand-dark group-hover:text-brand-orange" size={24} />
+                <div className="flex items-center gap-2">
+                    <div className="bg-brand-light p-3 rounded-full group-hover:bg-orange-50 transition-colors">
+                        <Shield className="text-brand-dark group-hover:text-brand-orange" size={24} />
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getProfileColor(project.targetProfile)}`}>
+                        {project.targetProfile}
+                    </span>
                 </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getProfileColor(project.targetProfile)}`}>
-                    {project.targetProfile}
-                </span>
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onEdit(project); }}
+                        className="p-1 text-gray-400 hover:text-brand-orange hover:bg-orange-50 rounded"
+                        title="Editar Proyecto"
+                    >
+                        <Pencil size={16} />
+                    </button>
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onDelete(project._id); }}
+                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded"
+                        title="Eliminar Proyecto"
+                    >
+                        <Trash2 size={16} />
+                    </button>
+                </div>
             </div>
 
             <h3 className="font-bold text-lg text-brand-dark mb-1">{project.clientName}</h3>

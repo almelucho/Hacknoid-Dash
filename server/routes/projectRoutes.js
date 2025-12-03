@@ -8,6 +8,8 @@ const upload = require('../middleware/upload'); // <--- IMPORTAR MULTER
 router.post('/', projectController.createProject);
 router.get('/', auth, projectController.getProjects);
 router.get('/:id', projectController.getProjectById);
+router.put('/:id', auth, projectController.updateProject); // <--- EDITAR PROYECTO
+router.delete('/:id', auth, projectController.deleteProject); // <--- BORRAR PROYECTO
 
 // POLÍTICAS GENERALES
 router.post('/:projectId/policies', projectController.addGeneralPolicy);

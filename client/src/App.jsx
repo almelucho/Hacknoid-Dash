@@ -175,7 +175,7 @@ function App() {
           />
         )}
 
-        {view === 'clients' && currentUser?.role === 'admin' && <ClientsView />}
+        {view === 'clients' && (currentUser?.role === 'admin' || localStorage.getItem('userRole') === 'admin') && <ClientsView />}
 
         {showCreateModal && (
           <CreateProjectModal

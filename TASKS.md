@@ -101,11 +101,18 @@
   - Features: Selector de periodicidad, Chat/Comentarios, Historial.
 
 ## ✏️ Fase 3.7: Mejoras de Usabilidad (NUEVO)
-- [ ] 3.7.1. **Edición de Elementos Manuales**:
-  - Backend: Endpoints PUT para Controles, Salvaguardas y Actividades.
-  - Frontend: Botón "Editar" (Lápiz) en AuditView.
-- [ ] 3.7.2. **Mejora Visual Toggle**:
-  - Frontend: Toggle Naranja (Activo) / Gris (Inactivo).
+- [x] 3.7.1. **Edición de Elementos Manuales**:
+  - [x] Backend: Endpoints PUT para Controles, Salvaguardas y Actividades.
+  - [x] Backend: Endpoints PUT para Políticas Generales y de Control.
+  - [x] Frontend: Botón "Editar" (Lápiz) en AuditView (Todo).
+- [x] 3.7.2. **Mejora Visual Toggle**:
+  - [x] Frontend: Toggle Naranja (Activo) / Gris (Inactivo).
+- [x] 3.7.3. **Gestión de Clientes (CRUD Completo)**:
+  - [x] Backend: Endpoints PUT y DELETE para Clientes (con Cascada).
+  - [x] Frontend: Botones Editar y Eliminar en ClientsView.
+- [x] 3.7.4. **Gestión de Proyectos (CRUD Completo)**:
+  - [x] Backend: Endpoints PUT y DELETE para Proyectos.
+  - [x] Frontend: Botones Editar y Eliminar en ProjectCard.
 
 ## 🛡️ Fase 4: Refinamiento de Evidencias y Políticas
 - [ ] 4.1. **Lógica de Política Madre**:

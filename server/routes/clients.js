@@ -32,5 +32,7 @@ router.get('/', auth, admin, clientController.getClients);
 router.post('/', auth, admin, clientController.createClient);
 router.post('/:id/logo', auth, admin, upload.single('file'), clientController.uploadLogo);
 router.post('/:id/users', auth, admin, clientController.createUserForClient);
+router.put('/:id', auth, admin, clientController.updateClient);
+router.delete('/:id', auth, admin, clientController.deleteClient);
 
 module.exports = router;
