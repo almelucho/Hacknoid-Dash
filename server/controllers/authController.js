@@ -3,7 +3,7 @@ const Client = require('../models/Client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = 'secreto_super_seguro_hacknoid'; // En prod usar variable de entorno
+const JWT_SECRET = process.env.JWT_SECRET || 'secreto_super_seguro_hacknoid';
 
 // 1. Registro (Solo para Admin inicial)
 exports.register = async (req, res) => {

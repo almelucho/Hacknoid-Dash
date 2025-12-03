@@ -51,18 +51,24 @@ const SafeguardSchema = new mongoose.Schema({
 const ProjectControlSchema = new mongoose.Schema({
     controlNumber: Number,
     title: String,
+    controlPolicies: [ActivitySchema], // <--- NUEVO CAMPO
     safeguards: [SafeguardSchema],
     percentage: { type: Number, default: 0 }
 });
 
 const ProjectSchema = new mongoose.Schema({
     // Vinculamos el Proyecto a un Cliente de la base de datos
-    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client' },
+    clientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Client', required: true }, // <--- AHORA ES REQUIRED
 
     clientName: { type: String, required: true }, // Mantenemos esto por facilidad visual
     projectName: { type: String, required: true },
     targetProfile: { type: String, enum: ['IG1', 'IG2', 'IG3'], default: 'IG1' },
+
+    // 🔥 ESTA LÍNEA ES CRÍTICA: Define que es un ARRAY []
+    generalPolicies: [ActivitySchema],
+
     controls: [ProjectControlSchema],
+    globalPercentage: { type: Number, default: 0 },
     createdAt: { type: Date, default: Date.now }
 });
 

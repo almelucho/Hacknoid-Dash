@@ -24,9 +24,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Rutas
-router.get('/', clientController.getClients);
-router.post('/', clientController.createClient);
-router.post('/:id/logo', upload.single('file'), clientController.uploadLogo);
+const auth = require('../middleware/auth');
+const admin = require('../middleware/admin');
+
+// Rutas (Todas protegidas para ADMIN)
+router.get('/', auth, admin, clientController.getClients);
+router.post('/', auth, admin, clientController.createClient);
+router.post('/:id/logo', auth, admin, upload.single('file'), clientController.uploadLogo);
+router.post('/:id/users', auth, admin, clientController.createUserForClient);
 
 module.exports = router;

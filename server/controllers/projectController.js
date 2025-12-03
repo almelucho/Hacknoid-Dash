@@ -1,10 +1,9 @@
 const Project = require('../models/Project');
 const CisTemplate = require('../models/CisTemplate');
-const Client = require('../models/Client'); // <--- NUEVO
+const Client = require('../models/Client');
 
 // --- MOTOR DE CÁLCULO MEJORADO (Soporte N/A) ---
 const recalculatePercentages = async (project, control, safeguard) => {
-
     // 1. Calcular % de la Salvaguarda (Nivel 2)
     const totalActs = safeguard.activities.length;
     if (totalActs > 0) {
@@ -26,30 +25,144 @@ const recalculatePercentages = async (project, control, safeguard) => {
         const sumSafeguardPerc = applicableSafeguards.reduce((acc, sg) => acc + sg.percentage, 0);
         control.percentage = Math.round(sumSafeguardPerc / totalApplicable);
     }
-
-    // (Opcional) Recalcular % Global del Proyecto aquí si fuera necesario
 };
 
-// 1. CREAR PROYECTO (Vinculado a Cliente)
+const recalculateGlobalProgress = async (project) => {
+    const totalControls = project.controls.length;
+    if (totalControls > 0) {
+        const sum = project.controls.reduce((acc, c) => acc + (c.percentage || 0), 0);
+        project.globalPercentage = Math.round(sum / totalControls);
+    } else {
+        project.globalPercentage = 0;
+    }
+};
+
+// A. Crear Política General (Nivel 0)
+exports.addGeneralPolicy = async (req, res) => {
+    try {
+        console.log("➕ Agregando Política General al proyecto:", req.params.projectId);
+
+        const project = await Project.findById(req.params.projectId);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        // Asegurar que el array exista
+        if (!project.generalPolicies) project.generalPolicies = [];
+
+        // Agregar la política
+        project.generalPolicies.push({
+            title: req.body.title,
+            status: 0,
+            evidenceFiles: [] // Inicializar vacío
+        });
+
+        await recalculateGlobalProgress(project);
+        await project.save();
+
+        console.log("✅ Política guardada. Total:", project.generalPolicies.length);
+        res.json(project);
+
+    } catch (error) {
+        console.error("❌ Error al guardar política:", error);
+        res.status(500).send('Error al agregar política');
+    }
+};
+
+// B. Eliminar Política General
+exports.deleteGeneralPolicy = async (req, res) => {
+    try {
+        const { projectId, policyId } = req.params;
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        project.generalPolicies.pull({ _id: policyId });
+
+        await recalculateGlobalProgress(project);
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error eliminando política');
+    }
+};
+
+// C. Actualizar Estado Política General
+exports.updateGeneralPolicyStatus = async (req, res) => {
+    try {
+        const { projectId, policyId } = req.params;
+        const { status } = req.body;
+
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        const policy = project.generalPolicies.id(policyId);
+        if (!policy) return res.status(404).json({ msg: "Política no encontrada" });
+
+        policy.status = status;
+
+        await recalculateGlobalProgress(project);
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error actualizando estado');
+    }
+};
+
+// D. Subir Evidencia a Política General
+exports.uploadGeneralPolicyEvidence = async (req, res) => {
+    try {
+        const { projectId, policyId } = req.params;
+
+        if (!req.file) {
+            return res.status(400).json({ msg: "No se subió ningún archivo" });
+        }
+
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        const policy = project.generalPolicies.id(policyId);
+        if (!policy) return res.status(404).json({ msg: "Política no encontrada" });
+
+        const newFile = {
+            name: req.file.originalname,
+            url: `/uploads/${req.file.filename}`,
+            uploadedAt: new Date()
+        };
+
+        policy.evidenceFiles.push(newFile);
+
+        await project.save();
+        res.json(project);
+
+    } catch (error) {
+        console.error("Error subiendo evidencia:", error);
+        res.status(500).send('Error subiendo archivo');
+    }
+};
+
+// 1. CREAR PROYECTO
 exports.createProject = async (req, res) => {
     try {
-        // Ahora recibimos clientId en lugar de clientName manual
         const { clientId, projectName, targetProfile } = req.body;
 
-        // A. Validar que el cliente exista
+        if (!clientId) {
+            return res.status(400).json({ msg: "Error: Debes seleccionar un cliente." });
+        }
+
+        // Validar Cliente
         const client = await Client.findById(clientId);
         if (!client) {
             return res.status(404).json({ msg: "Error: El cliente seleccionado no existe." });
         }
 
-        // B. Obtener el "Molde" CIS
+        // Obtener Molde
         const templates = await CisTemplate.find().sort({ controlNumber: 1 });
         if (!templates || templates.length === 0) {
             return res.status(500).json({ msg: "Error Crítico: Falta seed de datos." });
         }
 
-        // C. Construir estructura (Igual que antes...)
         const projectControls = templates.map(template => {
+            // Filtrar por IG
             const validSafeguards = template.safeguards.filter(sg => {
                 if (targetProfile === 'IG3') return sg.implementationGroups.ig3;
                 if (targetProfile === 'IG2') return sg.implementationGroups.ig2;
@@ -80,47 +193,23 @@ exports.createProject = async (req, res) => {
             };
         });
 
-        // D. Crear Proyecto con la Referencia al Cliente
         const newProject = new Project({
-            clientId: client._id,      // <--- VINCULACIÓN CLAVE
-            clientName: client.name,   // Guardamos el nombre también para facilitar búsquedas
+            clientId: client._id,
+            clientName: client.name,
             projectName,
             targetProfile,
-            generalPolicy: { status: 0, evidenceFiles: [] },
+            generalPolicies: [{
+                title: "Política General de Seguridad de la Información",
+                status: 0,
+                evidenceFiles: []
+            }],
             controls: projectControls,
             globalPercentage: 0
         });
 
         await newProject.save();
 
-        // E. Guardar referencia en el Cliente también (Bidireccional)
-        // Nota: El modelo Client no tiene el campo 'projects' definido explícitamente en el paso anterior,
-        // pero si MongoDB es flexible lo guardará. Si queremos ser estrictos, deberíamos actualizar el modelo Client.
-        // Asumiremos que el usuario quiere esto así por ahora.
-        // Si falla porque el esquema es estricto, lo corregiremos.
-        // Revisando el modelo Client creado anteriormente:
-        // const ClientSchema = new mongoose.Schema({ name: String, logoUrl: String, contactName: String, contactEmail: String, createdAt: Date });
-        // No tiene 'projects'. Mongoose por defecto ignora campos no definidos en el schema a menos que strict: false.
-        // Sin embargo, el código del usuario lo pide. Lo incluiré, pero podría no persistir si el schema es estricto.
-
-        // Para evitar errores si 'projects' no existe en el schema, podemos intentar hacer un update directo o simplemente ignorarlo si no es crítico.
-        // El usuario proporcionó el código: client.projects.push(newProject._id); await client.save();
-        // Esto fallará si 'projects' no está en el schema de Client.js.
-        // Voy a verificar Client.js primero.
-
-        // Espera, el usuario NO pidió actualizar Client.js para agregar 'projects'.
-        // Pero en el código que me dio dice: client.projects.push(newProject._id);
-        // Esto va a crashear si client.projects es undefined.
-        // Voy a asumir que debo agregar 'projects' al esquema de Client.js también o manejarlo.
-        // Mejor sigo las instrucciones EXPLICITAS del usuario para projectController.js y si falla, le aviso.
-        // PERO, 'client' es un documento Mongoose. Si 'projects' no está en el schema, client.projects será undefined.
-        // client.projects.push(...) lanzará "Cannot read properties of undefined (reading 'push')".
-
-        // SOLUCIÓN: Voy a modificar Client.js silenciosamente para agregar 'projects' o 
-        // inicializarlo si no existe, para que el código del usuario funcione.
-        // O mejor, sigo el código del usuario tal cual y si falla, corregimos.
-        // Pero sé que fallará.
-        // Voy a agregar la lógica de inicialización en el controlador para ser seguro:
+        // Vincular al cliente
         if (!client.projects) client.projects = [];
         client.projects.push(newProject._id);
         await client.save();
@@ -133,10 +222,15 @@ exports.createProject = async (req, res) => {
     }
 };
 
-// GET: Obtener todos los proyectos
+// 2. OBTENER PROYECTOS
 exports.getProjects = async (req, res) => {
     try {
-        const projects = await Project.find().select('clientName projectName targetProfile createdAt controls');
+        let query = {};
+        if (req.user && req.user.role === 'client_viewer') {
+            query = { clientId: req.user.clientId };
+        }
+
+        const projects = await Project.find(query).select('clientName projectName targetProfile globalPercentage createdAt controls');
 
         const projectsWithStats = projects.map(p => {
             const totalControls = p.controls.length;
@@ -149,6 +243,7 @@ exports.getProjects = async (req, res) => {
 
         res.json(projectsWithStats);
     } catch (error) {
+        console.error(error);
         res.status(500).send('Error obteniendo proyectos');
     }
 };
@@ -176,11 +271,11 @@ exports.toggleSafeguardApplicability = async (req, res) => {
 
         if (!safeguard) return res.status(404).json({ msg: "Salvaguarda no encontrada" });
 
-        // Actualizar estado
         safeguard.isApplicable = isApplicable;
         safeguard.nonApplicableReason = reason || "";
 
         await recalculatePercentages(project, control, safeguard);
+        await recalculateGlobalProgress(project);
         await project.save();
 
         res.json({
@@ -198,12 +293,6 @@ exports.toggleSafeguardApplicability = async (req, res) => {
 // PATCH: Actualizar estado de una actividad
 exports.updateActivityStatus = async (req, res) => {
     try {
-        // Nota: Ahora la ruta debe incluir safeguardId también, o debemos buscarla
-        // Ruta sugerida: /:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId
-        // Pero si mantenemos la ruta anterior, tendremos que buscar la actividad en todas las salvaguardas del control.
-        // Para simplificar y ser robustos, asumiremos que recibimos safeguardId en params o buscamos.
-
-        // Vamos a intentar buscar la actividad dentro del control iterando salvaguardas si no viene el ID.
         const { projectId, controlId, activityId } = req.params;
         const { status } = req.body;
 
@@ -213,16 +302,13 @@ exports.updateActivityStatus = async (req, res) => {
         const control = project.controls.id(controlId);
         if (!control) return res.status(404).json({ msg: "Control no encontrado" });
 
-        // Buscar la salvaguarda que contiene la actividad
         let safeguard;
         let activity;
 
-        // Si la ruta tiene safeguardId (ideal), úsalo. Si no, busca.
         if (req.params.safeguardId) {
             safeguard = control.safeguards.id(req.params.safeguardId);
             if (safeguard) activity = safeguard.activities.id(activityId);
         } else {
-            // Búsqueda profunda
             for (const sg of control.safeguards) {
                 const act = sg.activities.id(activityId);
                 if (act) {
@@ -235,11 +321,10 @@ exports.updateActivityStatus = async (req, res) => {
 
         if (!activity) return res.status(404).json({ msg: "Actividad no encontrada" });
 
-        // Actualizar estado
         activity.status = status;
 
-        // Recalcular
         await recalculatePercentages(project, control, safeguard);
+        await recalculateGlobalProgress(project);
         await project.save();
 
         res.json({
@@ -257,16 +342,15 @@ exports.updateActivityStatus = async (req, res) => {
 
 // --- GESTIÓN DE CONTROLES (NIVEL 1) ---
 
-// 1. Crear un Nuevo Control Manual
 exports.addControl = async (req, res) => {
     try {
+        console.log("➕ Request to add control received. Project:", req.params.projectId, "Body:", req.body);
         const { projectId } = req.params;
         const { title, description, controlNumber } = req.body;
 
         const project = await Project.findById(projectId);
         if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
 
-        // Crear nuevo control (array de salvaguardas vacío)
         project.controls.push({
             controlNumber: controlNumber || project.controls.length + 1,
             title,
@@ -275,14 +359,16 @@ exports.addControl = async (req, res) => {
             percentage: 0
         });
 
+        await recalculateGlobalProgress(project);
         await project.save();
+        console.log("✅ Control added successfully. Total controls:", project.controls.length);
         res.json(project);
     } catch (error) {
+        console.error("Error creando control:", error);
         res.status(500).send('Error creando control');
     }
 };
 
-// 2. Eliminar un Control
 exports.deleteControl = async (req, res) => {
     try {
         const { projectId, controlId } = req.params;
@@ -290,15 +376,107 @@ exports.deleteControl = async (req, res) => {
             { _id: projectId },
             { $pull: { controls: { _id: controlId } } }
         );
+        // Recalcular global después de borrar (necesitamos volver a buscar el proyecto)
+        const project = await Project.findById(projectId);
+        if (project) {
+            await recalculateGlobalProgress(project);
+            await project.save();
+        }
         res.json({ msg: "Control eliminado" });
     } catch (error) {
         res.status(500).send('Error eliminando control');
     }
 };
 
+// --- GESTIÓN DE POLÍTICAS DE CONTROL (NIVEL 1.5) ---
+
+exports.addControlPolicy = async (req, res) => {
+    try {
+        const { projectId, controlId } = req.params;
+        const { title } = req.body;
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        if (!control) return res.status(404).json({ msg: "Control no encontrado" });
+
+        if (!control.controlPolicies) control.controlPolicies = [];
+
+        control.controlPolicies.push({
+            title,
+            status: 0,
+            evidenceFiles: []
+        });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error creando política de control');
+    }
+};
+
+exports.deleteControlPolicy = async (req, res) => {
+    try {
+        const { projectId, controlId, policyId } = req.params;
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+
+        control.controlPolicies.pull({ _id: policyId });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        res.status(500).send('Error eliminando política de control');
+    }
+};
+
+exports.updateControlPolicyStatus = async (req, res) => {
+    try {
+        const { projectId, controlId, policyId } = req.params;
+        const { status } = req.body;
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const policy = control.controlPolicies.id(policyId);
+
+        if (!policy) return res.status(404).json({ msg: "Política no encontrada" });
+
+        policy.status = status;
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        res.status(500).send('Error actualizando estado');
+    }
+};
+
+exports.uploadControlPolicyEvidence = async (req, res) => {
+    try {
+        const { projectId, controlId, policyId } = req.params;
+        if (!req.file) return res.status(400).json({ msg: "No se subió archivo" });
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const policy = control.controlPolicies.id(policyId);
+
+        if (!policy) return res.status(404).json({ msg: "Política no encontrada" });
+
+        policy.evidenceFiles.push({
+            name: req.file.originalname,
+            url: `/uploads/${req.file.filename}`,
+            uploadedAt: new Date()
+        });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error subiendo evidencia');
+    }
+};
+
 // --- GESTIÓN DE SALVAGUARDAS (NIVEL 2) ---
 
-// 3. Crear una Salvaguarda Manual
 exports.addSafeguard = async (req, res) => {
     try {
         const { projectId, controlId } = req.params;
@@ -318,6 +496,7 @@ exports.addSafeguard = async (req, res) => {
             percentage: 0
         });
 
+        await recalculateGlobalProgress(project);
         await project.save();
         res.json(project);
     } catch (error) {
@@ -326,17 +505,13 @@ exports.addSafeguard = async (req, res) => {
     }
 };
 
-// 4. Eliminar una Salvaguarda
 exports.deleteSafeguard = async (req, res) => {
     try {
         const { projectId, controlId, safeguardId } = req.params;
-
         const project = await Project.findById(projectId);
         const control = project.controls.id(controlId);
-
-        // Usar método pull de Mongoose
         control.safeguards.pull({ _id: safeguardId });
-
+        await recalculateGlobalProgress(project);
         await project.save();
         res.json(project);
     } catch (error) {
@@ -346,7 +521,6 @@ exports.deleteSafeguard = async (req, res) => {
 
 // --- GESTIÓN DE ACTIVIDADES (NIVEL 3) ---
 
-// 5. Crear una Actividad Manual
 exports.addActivity = async (req, res) => {
     try {
         const { projectId, controlId, safeguardId } = req.params;
@@ -365,10 +539,135 @@ exports.addActivity = async (req, res) => {
         });
 
         await recalculatePercentages(project, control, safeguard);
+        await recalculateGlobalProgress(project);
         await project.save();
         res.json(project);
     } catch (error) {
         console.error(error);
         res.status(500).send('Error creando actividad');
     }
+};
+
+exports.uploadActivityEvidence = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId } = req.params;
+        if (!req.file) return res.status(400).json({ msg: "No se subió archivo" });
+
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const safeguard = control.safeguards.id(safeguardId);
+        const activity = safeguard.activities.id(activityId);
+
+        if (!activity) return res.status(404).json({ msg: "Actividad no encontrada" });
+
+        activity.evidenceFiles.push({
+            name: req.file.originalname,
+            url: `/uploads/${req.file.filename}`,
+            uploadedAt: new Date()
+        });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error subiendo evidencia a actividad');
+    }
+};
+
+exports.deleteActivity = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId } = req.params;
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const safeguard = control.safeguards.id(safeguardId);
+
+        safeguard.activities.pull({ _id: activityId });
+
+        await recalculatePercentages(project, control, safeguard);
+        await recalculateGlobalProgress(project);
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        res.status(500).send('Error eliminando actividad');
+    }
+};
+
+// --- EDICIÓN DE TÍTULOS (NUEVO) ---
+
+exports.updateControl = async (req, res) => {
+    try {
+        const { projectId, controlId } = req.params;
+        const { title } = req.body;
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        if (!control) return res.status(404).json({ msg: "Control no encontrado" });
+
+        control.title = title;
+        await project.save();
+        res.json(project);
+    } catch (error) { res.status(500).send('Error actualizando control'); }
+};
+
+exports.updateSafeguard = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId } = req.params;
+        const { title } = req.body;
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const safeguard = control.safeguards.id(safeguardId);
+        if (!safeguard) return res.status(404).json({ msg: "Salvaguarda no encontrada" });
+
+        safeguard.title = title;
+        await project.save();
+        res.json(project);
+    } catch (error) { res.status(500).send('Error actualizando salvaguarda'); }
+};
+
+exports.updateActivity = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId } = req.params;
+        const { title } = req.body;
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        const safeguard = control.safeguards.id(safeguardId);
+        const activity = safeguard.activities.id(activityId);
+        if (!activity) return res.status(404).json({ msg: "Actividad no encontrada" });
+
+        activity.title = title;
+        await project.save();
+        res.json(project);
+    } catch (error) { res.status(500).send('Error actualizando actividad'); }
+};
+
+exports.updateGeneralPolicy = async (req, res) => {
+    try {
+        const { projectId, policyId } = req.params;
+        const { title } = req.body;
+        const project = await Project.findById(projectId);
+        if (!project) return res.status(404).json({ msg: "Proyecto no encontrado" });
+
+        const policy = project.generalPolicies.id(policyId);
+        if (!policy) return res.status(404).json({ msg: "Política no encontrada" });
+
+        policy.title = title;
+        await project.save();
+        res.json(project);
+    } catch (error) { res.status(500).send('Error actualizando política general'); }
+};
+
+exports.updateControlPolicy = async (req, res) => {
+    try {
+        const { projectId, controlId, policyId } = req.params;
+        const { title } = req.body;
+        const project = await Project.findById(projectId);
+        const control = project.controls.id(controlId);
+        if (!control) return res.status(404).json({ msg: "Control no encontrado" });
+
+        const policy = control.controlPolicies.id(policyId);
+        if (!policy) return res.status(404).json({ msg: "Política no encontrada" });
+
+        policy.title = title;
+        await project.save();
+        res.json(project);
+    } catch (error) { res.status(500).send('Error actualizando política de control'); }
 };

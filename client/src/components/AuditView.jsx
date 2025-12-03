@@ -1,368 +1,393 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Circle, Plus, Trash2, ToggleLeft, ToggleRight, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Circle, Plus, Trash2, ToggleLeft, ToggleRight, FileText, Shield, BookOpen, Paperclip, Pencil } from 'lucide-react';
 
 export default function AuditView({ projectId, onBack }) {
     const [project, setProject] = useState(null);
-    const [expandedControl, setExpandedControl] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [expandedControl, setExpandedControl] = useState(null);
 
-    // Estados para formularios rápidos
+    // Estados Inputs
+    const [newGeneralPolicyTitle, setNewGeneralPolicyTitle] = useState("");
     const [newControlTitle, setNewControlTitle] = useState("");
-    const [addingSafeguardTo, setAddingSafeguardTo] = useState(null); // ID del control
+    const [addingControlPolicy, setAddingControlPolicy] = useState(null);
+    const [newControlPolicyTitle, setNewControlPolicyTitle] = useState("");
+    const [addingSafeguardTo, setAddingSafeguardTo] = useState(null);
     const [newSafeguardTitle, setNewSafeguardTitle] = useState("");
     const [addingActivityTo, setAddingActivityTo] = useState(null);
     const [newActivityTitle, setNewActivityTitle] = useState("");
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+    // --- HEADERS DE SEGURIDAD (LA LLAVE) ---
+    const authHeaders = {
+        'Content-Type': 'application/json',
+        'x-auth-token': localStorage.getItem('token')
+    };
+
+    const uploadHeaders = {
+        'x-auth-token': localStorage.getItem('token')
+        // Nota: No ponemos Content-Type aquí porque FormData lo pone solo
+    };
+
     const fetchProject = () => {
-        fetch(`${API_URL}/api/projects/${projectId}`)
-            .then(res => res.json())
+        fetch(`${API_URL}/api/projects/${projectId}`, { headers: authHeaders })
+            .then(res => {
+                if (res.status === 401) { alert("Sesión expirada"); window.location.reload(); return; }
+                return res.json();
+            })
             .then(data => {
-                setProject(data);
-                setLoading(false);
+                if (data) { setProject(data); setLoading(false); }
             })
             .catch(err => console.error(err));
     };
 
     useEffect(() => { fetchProject(); }, [projectId]);
 
-    // --- ACCIONES DE CONTROL ---
-    const handleAddControl = async () => {
-        if (!newControlTitle) return;
-        await fetch(`${API_URL}/api/projects/${projectId}/controls`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: newControlTitle, description: "Control manual", controlNumber: project.controls.length + 1 })
-        });
-        setNewControlTitle("");
-        fetchProject();
-    };
-
-    const handleDeleteControl = async (controlId) => {
-        if (!confirm("¿Eliminar este control y todo su contenido?")) return;
-        await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}`, { method: 'DELETE' });
-        fetchProject();
-    };
-
-    // --- ACCIONES DE SALVAGUARDA ---
-    const handleAddSafeguard = async (controlId) => {
-        if (!newSafeguardTitle) return;
-        await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}/safeguards`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: newSafeguardTitle, description: "Salvaguarda manual" })
-        });
-        setNewSafeguardTitle("");
-        setAddingSafeguardTo(null);
-        fetchProject();
-    };
-
-    const handleDeleteSafeguard = async (controlId, safeguardId) => {
-        if (!confirm("¿Eliminar salvaguarda?")) return;
-        await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}/safeguards/${safeguardId}`, { method: 'DELETE' });
-        fetchProject();
-    };
-
-    // --- ACCIONES EXISTENTES ---
-    const handleToggleApplicability = async (controlId, safeguardId, currentStatus) => {
-        const newStatus = !currentStatus;
-        // Optimista
-        const updatedProject = { ...project };
-        const control = updatedProject.controls.find(c => c._id === controlId);
-        const sg = control.safeguards.find(s => s._id === safeguardId);
-        sg.isApplicable = newStatus;
-        setProject(updatedProject);
+    // --- SUBIDA DE ARCHIVOS (Con Token) ---
+    const handleUpload = async (e, urlEndpoint) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
 
         try {
-            await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}/safeguards/${safeguardId}/applicability`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ isApplicable: newStatus })
-            });
-            fetchProject();
-        } catch (error) {
-            console.error("Error toggle:", error);
-        }
-    };
-
-    const handleAddActivity = async (controlId, safeguardId) => {
-        if (!newActivityTitle.trim()) return;
-        try {
-            await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}/safeguards/${safeguardId}/activities`, {
+            const res = await fetch(`${API_URL}${urlEndpoint}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: newActivityTitle, description: "Actividad manual" })
+                headers: uploadHeaders, // <--- TOKEN
+                body: formData
             });
-            setNewActivityTitle("");
-            setAddingActivityTo(null);
-            fetchProject();
-        } catch (error) {
-            console.error("Error creating activity:", error);
-        }
+            if (res.ok) fetchProject();
+        } catch (error) { console.error(error); }
     };
 
-    const handleStatusClick = async (controlId, safeguardId, activityId, currentStatus) => {
-        let newStatus = currentStatus === 0 ? 50 : currentStatus === 50 ? 100 : 0;
-        // Optimista
-        const updatedProject = { ...project };
-        const control = updatedProject.controls.find(c => c._id === controlId);
-        const sg = control.safeguards.find(s => s._id === safeguardId);
-        const act = sg.activities.find(a => a._id === activityId);
-        act.status = newStatus;
-        setProject(updatedProject);
-
-        try {
-            await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}/safeguards/${safeguardId}/activities/${activityId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            });
-            fetchProject();
-        } catch (error) {
-            console.error("Error updating status:", error);
-        }
-    };
-
-    const handleDeleteActivity = async (controlId, safeguardId, activityId) => {
-        if (!confirm("¿Eliminar actividad?")) return;
-        try {
-            await fetch(`${API_URL}/api/projects/${projectId}/controls/${controlId}/safeguards/${safeguardId}/activities/${activityId}`, { method: 'DELETE' });
-            fetchProject();
-        } catch (error) {
-            console.error("Error deleting activity:", error);
-        }
-    };
-
-    // Configuración visual de los estados
     const getStatusConfig = (status) => {
         switch (status) {
-            case 100:
-                return {
-                    label: "COMPLETADO",
-                    classes: "bg-green-100 text-green-700 border-green-200 hover:bg-green-200",
-                    icon: <CheckCircle size={16} />
-                };
-            case 50:
-                return {
-                    label: "EN PROGRESO",
-                    classes: "bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200",
-                    icon: <AlertCircle size={16} />
-                };
-            default: // 0
-                return {
-                    label: "NO INICIADO",
-                    classes: "bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200",
-                    icon: <Circle size={16} />
-                };
+            case 100: return { label: "COMPLETADO", classes: "bg-green-100 text-green-700 border-green-200", icon: <CheckCircle size={14} /> };
+            case 50: return { label: "EN PROGRESO", classes: "bg-yellow-100 text-yellow-700 border-yellow-200", icon: <AlertCircle size={14} /> };
+            default: return { label: "NO INICIADO", classes: "bg-gray-100 text-gray-500 border-gray-200", icon: <Circle size={14} /> };
         }
     };
 
-    if (loading) return <div className="p-10 text-center">Cargando...</div>;
-    if (!project) return <div className="p-10 text-center text-red-500">No se encontró el proyecto.</div>;
+    // --- MANEJADORES (Todos usan authHeaders) ---
+
+    // POLÍTICAS GENERALES
+    const handleAddGeneralPolicy = async () => {
+        if (!newGeneralPolicyTitle.trim()) return;
+        await fetch(`${API_URL}/api/projects/${projectId}/policies`, {
+            method: 'POST', headers: authHeaders, body: JSON.stringify({ title: newGeneralPolicyTitle })
+        });
+        setNewGeneralPolicyTitle(""); fetchProject();
+    };
+    const handleEditGeneralPolicy = async (pid, currentTitle) => {
+        const newTitle = prompt("Nuevo nombre de la política:", currentTitle);
+        if (newTitle && newTitle !== currentTitle) {
+            await fetch(`${API_URL}/api/projects/${projectId}/policies/${pid}`, {
+                method: 'PUT', headers: authHeaders, body: JSON.stringify({ title: newTitle })
+            });
+            fetchProject();
+        }
+    };
+    const handleGeneralStatus = async (pid, s) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/policies/${pid}`, {
+            method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: s === 0 ? 50 : s === 50 ? 100 : 0 })
+        });
+        fetchProject();
+    };
+    const handleDeleteGeneral = async (pid) => {
+        if (confirm("¿Borrar?")) await fetch(`${API_URL}/api/projects/${projectId}/policies/${pid}`, { method: 'DELETE', headers: authHeaders });
+        fetchProject();
+    };
+
+    // CONTROLES MANUALES
+    const handleAddControl = async () => {
+        console.log("Attempting to add control:", newControlTitle);
+        if (!newControlTitle) return;
+        try {
+            const res = await fetch(`${API_URL}/api/projects/${projectId}/controls`, {
+                method: 'POST', headers: authHeaders, body: JSON.stringify({ title: newControlTitle })
+            });
+            console.log("Add control response:", res.status);
+            if (!res.ok) {
+                const errText = await res.text();
+                console.error("Error adding control:", errText);
+                alert("Error al crear control: " + errText);
+            }
+            setNewControlTitle(""); fetchProject();
+        } catch (error) {
+            console.error("Network error adding control:", error);
+            alert("Error de red al crear control");
+        }
+    };
+    const handleEditControl = async (id, currentTitle) => {
+        const newTitle = prompt("Nuevo nombre del control:", currentTitle);
+        if (newTitle && newTitle !== currentTitle) {
+            await fetch(`${API_URL}/api/projects/${projectId}/controls/${id}`, {
+                method: 'PUT', headers: authHeaders, body: JSON.stringify({ title: newTitle })
+            });
+            fetchProject();
+        }
+    };
+    const handleDeleteControl = async (id) => {
+        if (confirm("¿Borrar control?")) await fetch(`${API_URL}/api/projects/${projectId}/controls/${id}`, { method: 'DELETE', headers: authHeaders });
+        fetchProject();
+    };
+
+    // POLÍTICAS DE CONTROL
+    const handleAddControlPolicy = async (cid) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/policies`, {
+            method: 'POST', headers: authHeaders, body: JSON.stringify({ title: newControlPolicyTitle })
+        });
+        setNewControlPolicyTitle(""); setAddingControlPolicy(null); fetchProject();
+    };
+    const handleEditControlPolicy = async (cid, pid, currentTitle) => {
+        const newTitle = prompt("Nuevo nombre de la política:", currentTitle);
+        if (newTitle && newTitle !== currentTitle) {
+            await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/policies/${pid}`, {
+                method: 'PUT', headers: authHeaders, body: JSON.stringify({ title: newTitle })
+            });
+            fetchProject();
+        }
+    };
+    const handleControlPolicyStatus = async (cid, pid, s) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/policies/${pid}`, {
+            method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: s === 0 ? 50 : s === 50 ? 100 : 0 })
+        });
+        fetchProject();
+    };
+    const handleDeleteControlPolicy = async (cid, pid) => {
+        if (confirm("¿Borrar?")) await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/policies/${pid}`, { method: 'DELETE', headers: authHeaders });
+        fetchProject();
+    };
+
+    // SALVAGUARDAS
+    const handleAddSafeguard = async (cid) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards`, {
+            method: 'POST', headers: authHeaders, body: JSON.stringify({ title: newSafeguardTitle })
+        });
+        setNewSafeguardTitle(""); setAddingSafeguardTo(null); fetchProject();
+    };
+    const handleEditSafeguard = async (cid, sid, currentTitle) => {
+        const newTitle = prompt("Nuevo nombre de la salvaguarda:", currentTitle);
+        if (newTitle && newTitle !== currentTitle) {
+            await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}`, {
+                method: 'PUT', headers: authHeaders, body: JSON.stringify({ title: newTitle })
+            });
+            fetchProject();
+        }
+    };
+    const handleDeleteSafeguard = async (cid, sid) => {
+        if (confirm("¿Borrar?")) await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}`, { method: 'DELETE', headers: authHeaders });
+        fetchProject();
+    };
+    const handleToggleApplicability = async (cid, sid, val) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}/applicability`, {
+            method: 'PATCH', headers: authHeaders, body: JSON.stringify({ isApplicable: !val })
+        });
+        fetchProject();
+    };
+
+    // ACTIVIDADES
+    const handleAddActivity = async (cid, sid) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}/activities`, {
+            method: 'POST', headers: authHeaders, body: JSON.stringify({ title: newActivityTitle })
+        });
+        setNewActivityTitle(""); setAddingActivityTo(null); fetchProject();
+    };
+    const handleEditActivity = async (cid, sid, aid, currentTitle) => {
+        const newTitle = prompt("Nuevo nombre de la actividad:", currentTitle);
+        if (newTitle && newTitle !== currentTitle) {
+            await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}/activities/${aid}`, {
+                method: 'PUT', headers: authHeaders, body: JSON.stringify({ title: newTitle })
+            });
+            fetchProject();
+        }
+    };
+    const handleActivityStatus = async (cid, sid, aid, s) => {
+        await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}/activities/${aid}`, {
+            method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: s === 0 ? 50 : s === 50 ? 100 : 0 })
+        });
+        fetchProject();
+    };
+    const handleDeleteActivity = async (cid, sid, aid) => {
+        if (confirm("¿Borrar?")) await fetch(`${API_URL}/api/projects/${projectId}/controls/${cid}/safeguards/${sid}/activities/${aid}`, { method: 'DELETE', headers: authHeaders });
+        fetchProject();
+    };
+
+    // --- RENDER (FileList y JSX Principal) ---
+    const FileList = ({ files }) => (
+        <div className="flex flex-wrap gap-2 mt-2 pl-2 w-full">
+            {files && files.map((f, i) => (
+                <a key={i} href={`${API_URL}${f.url}`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded border border-blue-200 hover:underline">
+                    <FileText size={10} /> <span className="truncate max-w-[150px]">{f.name}</span>
+                </a>
+            ))}
+        </div>
+    );
+
+    if (loading) return <div>Cargando...</div>;
+    if (!project) return <div>Proyecto no encontrado</div>;
 
     return (
         <div className="animate-in fade-in pb-20">
+            {console.log("Project Data:", project)}
             {/* Header */}
-            <div className="flex items-center gap-4 mb-8 sticky top-0 bg-brand-light py-4 z-10">
-                <button onClick={onBack} className="p-2 bg-white rounded-full shadow-sm hover:bg-gray-100">
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
+            <div className="flex items-center gap-4 mb-8 bg-white p-4 rounded-xl shadow-sm border border-gray-100 sticky top-0 z-10">
+                <button onClick={onBack}><ArrowLeft /></button>
+                <div className="flex-1">
                     <h2 className="text-2xl font-bold text-brand-dark">{project.clientName}</h2>
-                    <span className="text-xs bg-brand-orange text-white px-2 py-1 rounded-full">{project.targetProfile}</span>
+                    <p className="text-sm text-gray-500">{project.projectName}</p>
+                </div>
+                <div className="text-right"><div className="text-xs font-bold text-gray-400">GLOBAL</div><div className="text-3xl font-bold text-brand-orange">{project.globalPercentage}%</div></div>
+            </div>
+
+            {/* 1. Políticas Generales */}
+            <div className="bg-white rounded-xl border border-blue-200 mb-8 overflow-hidden">
+                <div className="p-4 bg-blue-50 border-b border-blue-100"><h3 className="font-bold text-blue-900 flex gap-2"><BookOpen /> GOBERNANZA GENERAL</h3></div>
+                <div className="p-4 space-y-3">
+                    {(project.generalPolicies || []).map(pol => (
+                        <div key={pol._id} className="mb-2 pb-2 border-b border-blue-100 last:border-0">
+                            <div className="flex justify-between items-center">
+                                <span className="font-medium">{pol.title}</span>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => handleGeneralStatus(pol._id, pol.status)} className={`px-2 py-1 rounded text-xs font-bold border ${getStatusConfig(pol.status).classes}`}>{getStatusConfig(pol.status).label}</button>
+                                    <label className="cursor-pointer text-gray-400 hover:text-blue-500 flex items-center gap-1">
+                                        <input type="file" className="hidden" onChange={(e) => handleUpload(e, `/api/projects/${projectId}/policies/${pol._id}/evidence`)} />
+                                        <Paperclip size={16} /> <span className="text-xs">Subir</span>
+                                    </label>
+                                    <button onClick={() => handleEditGeneralPolicy(pol._id, pol.title)} className="text-gray-300 hover:text-blue-500"><Pencil size={16} /></button>
+                                    <button onClick={() => handleDeleteGeneral(pol._id)} className="text-red-300 hover:text-red-500"><Trash2 size={16} /></button>
+                                </div>
+                            </div>
+                            <FileList files={pol.evidenceFiles} />
+                        </div>
+                    ))}
+                    <div className="text-xs text-gray-400 mt-2">Debug: {project.generalPolicies?.length || 0} políticas encontradas.</div>
+                    <div className="flex gap-2 mt-2">
+                        <input type="text" placeholder="Nueva Política General..." className="border rounded px-2 flex-1" value={newGeneralPolicyTitle} onChange={e => setNewGeneralPolicyTitle(e.target.value)} />
+                        <button onClick={handleAddGeneralPolicy} className="bg-blue-600 text-white px-3 rounded text-sm">Agregar</button>
+                    </div>
                 </div>
             </div>
 
-            <div className="space-y-4">
-                {project.controls.map((control) => (
-                    <div key={control._id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                        {/* Header Control */}
-                        <div className="p-5 flex items-center justify-between group bg-white hover:bg-gray-50 transition-colors">
-                            <div className="flex items-center gap-4 flex-1 cursor-pointer" onClick={() => setExpandedControl(expandedControl === control._id ? null : control._id)}>
-                                <div className="bg-brand-dark text-white w-10 h-10 rounded flex items-center justify-center font-bold">
-                                    {control.controlNumber}
-                                </div>
-                                <h3 className="font-bold text-lg text-brand-dark">{control.title}</h3>
-                            </div>
 
-                            <div className="flex items-center gap-3">
-                                <button onClick={() => handleDeleteControl(control._id)} className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded transition-colors" title="Eliminar Control">
-                                    <Trash2 size={18} />
-                                </button>
-                                <div className="text-right mr-2">
-                                    <div className="text-xs text-gray-400 font-bold">CUMPLIMIENTO</div>
-                                    <div className="text-xl font-bold text-brand-orange">{control.percentage}%</div>
-                                </div>
+            {/* 2. Controles */}
+            <div className="space-y-4">
+                {(project.controls || []).map(control => (
+                    <div key={control._id} className="bg-white rounded-xl border shadow-sm">
+                        <div onClick={() => setExpandedControl(expandedControl === control._id ? null : control._id)} className="p-5 flex justify-between cursor-pointer hover:bg-gray-50">
+                            <div className="flex gap-4 items-center">
+                                <div className="bg-brand-dark text-white w-8 h-8 flex items-center justify-center rounded font-bold">{control.controlNumber}</div>
+                                <h3 className="font-bold">{control.title}</h3>
+                            </div>
+                            <div className="flex gap-4 items-center">
+                                <span className="text-brand-orange font-bold text-lg">{control.percentage}%</span>
+                                <button onClick={(e) => { e.stopPropagation(); handleEditControl(control._id, control.title) }} className="text-gray-300 hover:text-blue-500"><Pencil size={18} /></button>
+                                <button onClick={(e) => { e.stopPropagation(); handleDeleteControl(control._id) }} className="text-gray-300 hover:text-red-500"><Trash2 /></button>
                                 {expandedControl === control._id ? <ChevronDown /> : <ChevronRight />}
                             </div>
                         </div>
 
-                        {/* Body Control */}
                         {expandedControl === control._id && (
-                            <div className="bg-gray-50 border-t border-gray-200 p-6 space-y-6">
-
-                                {/* Botón Nueva Salvaguarda */}
-                                <div className="flex justify-end">
-                                    {addingSafeguardTo === control._id ? (
-                                        <div className="flex gap-2 w-full animate-in fade-in slide-in-from-top-2">
-                                            <input
-                                                autoFocus
-                                                type="text"
-                                                placeholder="Título de la nueva salvaguarda..."
-                                                className="flex-1 px-3 py-2 border rounded shadow-sm focus:ring-2 focus:ring-brand-orange focus:outline-none"
-                                                value={newSafeguardTitle}
-                                                onChange={e => setNewSafeguardTitle(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleAddSafeguard(control._id)}
-                                            />
-                                            <button onClick={() => handleAddSafeguard(control._id)} className="bg-brand-dark text-white px-4 rounded hover:bg-gray-800 transition-colors">Guardar</button>
-                                            <button onClick={() => setAddingSafeguardTo(null)} className="text-gray-500 px-2 hover:text-gray-700">✕</button>
+                            <div className="p-6 bg-gray-50 border-t space-y-6">
+                                {/* Políticas Control */}
+                                <div className="bg-white p-4 rounded border-l-4 border-blue-500 shadow-sm">
+                                    <h4 className="font-bold text-blue-900 mb-2">POLÍTICAS DEL CONTROL</h4>
+                                    {(control.controlPolicies || []).map(pol => (
+                                        <div key={pol._id} className="mb-2 pb-2 border-b border-gray-100 last:border-0">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm">{pol.title}</span>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleControlPolicyStatus(control._id, pol._id, pol.status)} className={`px-2 py-1 rounded text-[10px] border ${getStatusConfig(pol.status).classes}`}>{getStatusConfig(pol.status).label}</button>
+                                                    <label className="cursor-pointer text-gray-400 hover:text-blue-500"><input type="file" className="hidden" onChange={(e) => handleUpload(e, `/api/projects/${projectId}/controls/${control._id}/policies/${pol._id}/evidence`)} /><Paperclip size={14} /></label>
+                                                    <button onClick={() => handleEditControlPolicy(control._id, pol._id, pol.title)} className="text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
+                                                    <button onClick={() => handleDeleteControlPolicy(control._id, pol._id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+                                            <FileList files={pol.evidenceFiles} />
+                                        </div>
+                                    ))}
+                                    {/* Input Nueva Política Control */}
+                                    {addingControlPolicy === control._id ? (
+                                        <div className="flex gap-2 mt-2">
+                                            <input autoFocus type="text" className="border rounded px-2 flex-1 text-sm" value={newControlPolicyTitle} onChange={e => setNewControlPolicyTitle(e.target.value)} />
+                                            <button onClick={() => handleAddControlPolicy(control._id)} className="bg-blue-600 text-white px-2 text-xs rounded">OK</button>
                                         </div>
                                     ) : (
-                                        <button onClick={() => setAddingSafeguardTo(control._id)} className="text-sm font-bold text-brand-dark flex items-center gap-1 hover:underline decoration-brand-orange decoration-2 underline-offset-4">
-                                            <Plus size={16} /> Nueva Salvaguarda
-                                        </button>
+                                        <button onClick={() => setAddingControlPolicy(control._id)} className="text-xs text-blue-600 mt-2">+ Nueva Política</button>
                                     )}
                                 </div>
 
-                                {control.safeguards.map((sg) => (
-                                    <div key={sg._id} className={`rounded-lg border ${sg.isApplicable ? 'bg-white border-gray-200' : 'bg-gray-100 border-gray-200 opacity-75'}`}>
-                                        <div className="p-4 flex justify-between items-start border-b border-gray-100">
-                                            <div className="flex-1 pr-4">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <span className="text-xs font-mono font-bold bg-gray-200 px-1 rounded">{sg.templateRef}</span>
-                                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${sg.isApplicable ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
-                                                        {sg.isApplicable ? 'APLICA' : 'NO APLICA'}
-                                                    </span>
-                                                </div>
-                                                <h4 className={`font-semibold ${sg.isApplicable ? 'text-gray-800' : 'text-gray-500 line-through'}`}>
-                                                    {sg.title}
-                                                </h4>
-                                                <p className="text-sm text-gray-500 mt-1">{sg.description}</p>
-                                            </div>
-
-                                            <div className="flex gap-2">
-                                                {/* Toggle Aplicabilidad */}
-                                                <button
-                                                    onClick={() => handleToggleApplicability(control._id, sg._id, sg.isApplicable)}
-                                                    className={`transition-colors ${sg.isApplicable ? 'text-brand-orange' : 'text-gray-400'}`}
-                                                    title={sg.isApplicable ? "Marcar como No Aplica" : "Marcar como Aplicable"}
-                                                >
-                                                    {sg.isApplicable ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
-                                                </button>
-                                                {/* Eliminar Salvaguarda */}
-                                                <button onClick={() => handleDeleteSafeguard(control._id, sg._id)} className="text-gray-300 hover:text-red-500 transition-colors p-1" title="Eliminar Salvaguarda">
-                                                    <Trash2 size={20} />
-                                                </button>
-                                            </div>
+                                {/* Salvaguardas */}
+                                <div>
+                                    <div className="flex justify-between mb-2">
+                                        <h4 className="font-bold text-gray-600">Salvaguardas</h4>
+                                        {addingSafeguardTo !== control._id && <button onClick={() => setAddingSafeguardTo(control._id)} className="text-xs text-blue-600 font-bold">+ Nueva</button>}
+                                    </div>
+                                    {addingSafeguardTo === control._id && (
+                                        <div className="flex gap-2 mb-2">
+                                            <input autoFocus type="text" className="border rounded px-2 flex-1" value={newSafeguardTitle} onChange={e => setNewSafeguardTitle(e.target.value)} />
+                                            <button onClick={() => handleAddSafeguard(control._id)} className="bg-blue-600 text-white px-2 rounded text-xs">Guardar</button>
                                         </div>
+                                    )}
 
-                                        {/* --- NIVEL 3: ACTIVIDADES (Solo si aplica) --- */}
-                                        {sg.isApplicable && (
-                                            <div className="p-4 bg-gray-50/50">
-                                                {sg.activities.length > 0 ? (
-                                                    <div className="space-y-2">
-                                                        {sg.activities.map((act) => (
-                                                            <div key={act._id} className="group/act flex items-center justify-between bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all">
-
-                                                                {/* IZQUIERDA: Título y Descripción */}
-                                                                <div className="flex-1 pr-4">
-                                                                    <h5 className="text-sm font-bold text-gray-800">{act.title}</h5>
-                                                                    {act.description && (
-                                                                        <p className="text-xs text-gray-500 mt-1">{act.description}</p>
-                                                                    )}
-                                                                </div>
-
-                                                                {/* DERECHA: Botón de Estado Interactivo */}
-                                                                <div className="flex items-center gap-3">
-
-                                                                    {/* EL NUEVO BOTÓN DE ESTADO MEJORADO */}
-                                                                    {(() => {
-                                                                        const config = getStatusConfig(act.status);
-                                                                        return (
-                                                                            <button
-                                                                                onClick={() => handleStatusClick(control._id, sg._id, act._id, act.status)}
-                                                                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all transform active:scale-95 ${config.classes}`}
-                                                                                title="Clic para avanzar: 0% → 50% → 100%"
-                                                                            >
-                                                                                {config.icon}
-                                                                                <span>{config.label}</span>
-                                                                            </button>
-                                                                        );
-                                                                    })()}
-
-                                                                    {/* Botón Eliminar (Visible al pasar el mouse) */}
-                                                                    <button
-                                                                        onClick={() => handleDeleteActivity(control._id, sg._id, act._id)}
-                                                                        className="text-gray-300 hover:text-red-500 opacity-0 group-hover/act:opacity-100 transition-opacity p-2 rounded-full hover:bg-red-50"
-                                                                        title="Eliminar Actividad"
-                                                                    >
-                                                                        <Trash2 size={18} />
-                                                                    </button>
+                                    {control.safeguards.map(sg => (
+                                        <div key={sg._id} className={`bg-white border rounded mb-2 ${!sg.isApplicable && 'opacity-50'}`}>
+                                            <div className="p-3 flex justify-between border-b">
+                                                <span className="font-medium text-sm">{sg.title}</span>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => handleToggleApplicability(control._id, sg._id, sg.isApplicable)} className={sg.isApplicable ? "text-brand-orange" : "text-gray-300"}>
+                                                        {sg.isApplicable ? <ToggleRight /> : <ToggleLeft />}
+                                                    </button>
+                                                    <button onClick={() => handleEditSafeguard(control._id, sg._id, sg.title)} className="text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
+                                                    <button onClick={() => handleDeleteSafeguard(control._id, sg._id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                                                </div>
+                                            </div>
+                                            {sg.isApplicable && (
+                                                <div className="p-3 bg-gray-50/50">
+                                                    {sg.activities.map(act => (
+                                                        <div key={act._id} className="bg-white p-2 rounded border mb-2 shadow-sm">
+                                                            <div className="flex justify-between items-center">
+                                                                <span className="text-sm flex-1">{act.title}</span>
+                                                                <div className="flex gap-2 items-center">
+                                                                    <button onClick={() => handleActivityStatus(control._id, sg._id, act._id, act.status)} className={`px-2 py-1 rounded text-[10px] border ${getStatusConfig(act.status).classes}`}>{getStatusConfig(act.status).label}</button>
+                                                                    <label className="cursor-pointer text-gray-400 hover:text-blue-500"><input type="file" className="hidden" onChange={(e) => handleUpload(e, `/api/projects/${projectId}/controls/${control._id}/safeguards/${sg._id}/activities/${act._id}/evidence`)} /><Paperclip size={14} /></label>
+                                                                    <button onClick={() => handleEditActivity(control._id, sg._id, act._id, act.title)} className="text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
+                                                                    <button onClick={() => handleDeleteActivity(control._id, sg._id, act._id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                                                                 </div>
                                                             </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-gray-400 italic mb-3">No hay actividades creadas.</p>
-                                                )}
-
-                                                {/* Botón Agregar Actividad */}
-                                                {addingActivityTo === sg._id ? (
-                                                    <div className="mt-3 flex gap-2 animate-in fade-in">
-                                                        <input
-                                                            autoFocus
-                                                            type="text"
-                                                            placeholder="Nombre de la nueva tarea..."
-                                                            className="flex-1 px-3 py-2 border rounded text-sm focus:ring-2 focus:ring-brand-orange focus:outline-none"
-                                                            value={newActivityTitle}
-                                                            onChange={(e) => setNewActivityTitle(e.target.value)}
-                                                            onKeyDown={(e) => e.key === 'Enter' && handleAddActivity(control._id, sg._id)}
-                                                        />
-                                                        <button
-                                                            onClick={() => handleAddActivity(control._id, sg._id)}
-                                                            className="bg-brand-orange text-white px-3 py-1 rounded text-sm hover:bg-orange-700 transition-colors"
-                                                        >
-                                                            Guardar
-                                                        </button>
-                                                        <button onClick={() => setAddingActivityTo(null)} className="text-gray-500 px-2 hover:text-gray-700">✕</button>
-                                                    </div>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => setAddingActivityTo(sg._id)}
-                                                        className="mt-3 text-sm text-brand-orange font-medium flex items-center gap-1 hover:underline"
-                                                    >
-                                                        <Plus size={16} /> Agregar Actividad Manual
-                                                    </button>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
+                                                            <FileList files={act.evidenceFiles} />
+                                                        </div>
+                                                    ))}
+                                                    {/* Input Actividad */}
+                                                    {addingActivityTo === sg._id ? (
+                                                        <div className="flex gap-2">
+                                                            <input autoFocus type="text" className="border rounded px-2 flex-1 text-sm" value={newActivityTitle} onChange={e => setNewActivityTitle(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleAddActivity(control._id, sg._id)} />
+                                                            <button onClick={() => handleAddActivity(control._id, sg._id)} className="bg-orange-500 text-white px-2 rounded text-xs">OK</button>
+                                                        </div>
+                                                    ) : (
+                                                        <button onClick={() => setAddingActivityTo(sg._id)} className="text-xs text-gray-400 hover:text-orange-500 flex items-center gap-1">+ Actividad</button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
                 ))}
-
-                {/* Botón Crear Control Nuevo (Abajo del todo) */}
-                <div className="mt-8 border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center gap-4 bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className="flex gap-4 w-full max-w-md">
-                        <input
-                            type="text"
-                            placeholder="Nombre del Nuevo Control..."
-                            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-brand-dark focus:outline-none"
-                            value={newControlTitle}
-                            onChange={(e) => setNewControlTitle(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddControl()}
-                        />
-                        <button
-                            onClick={handleAddControl}
-                            className="bg-brand-dark text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors font-medium shadow-sm whitespace-nowrap"
-                        >
-                            + Crear Control
-                        </button>
-                    </div>
-                    <p className="text-xs text-gray-400">Añade controles personalizados fuera del estándar CIS si es necesario.</p>
+                <div className="bg-white rounded-xl border-2 border-dashed border-gray-300 p-4 flex gap-2 items-center justify-center">
+                    <input
+                        type="text"
+                        placeholder="Nombre del Nuevo Control..."
+                        className="border rounded px-3 py-2 flex-1"
+                        value={newControlTitle}
+                        onChange={e => setNewControlTitle(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleAddControl()}
+                    />
+                    <button onClick={handleAddControl} className="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 transition-colors">
+                        + Crear Control
+                    </button>
                 </div>
             </div>
         </div>

@@ -1,4 +1,6 @@
 const Client = require('../models/Client');
+const User = require('../models/User');
+const bcrypt = require('bcryptjs');
 
 // 1. Obtener todos los clientes
 exports.getClients = async (req, res) => {
@@ -55,5 +57,46 @@ exports.uploadLogo = async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ msg: "Error al subir logo" });
+    }
+};
+
+// 4. Crear Usuario para Cliente
+exports.createUserForClient = async (req, res) => {
+    try {
+        const { id } = req.params; // Client ID
+        const { name, email, password } = req.body;
+
+        // Verificar si el cliente existe
+        const client = await Client.findById(id);
+        if (!client) {
+            return res.status(404).json({ msg: "Cliente no encontrado" });
+        }
+
+        // Verificar si el usuario ya existe
+        let user = await User.findOne({ email });
+        if (user) {
+            return res.status(400).json({ msg: "El usuario ya existe" });
+        }
+
+        // Crear nuevo usuario
+        user = new User({
+            name,
+            email,
+            password,
+            role: 'client_viewer', // Rol por defecto para usuarios de clientes
+            clientId: client._id
+        });
+
+        // Encriptar contraseña
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+
+        await user.save();
+
+        res.status(201).json({ msg: "Usuario creado exitosamente", userId: user._id });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ msg: "Error al crear usuario" });
     }
 };

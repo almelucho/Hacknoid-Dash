@@ -25,6 +25,11 @@
 - [x] 3.2. Motor de Cálculo (Porcentajes y Promedios).
 - [x] 3.3. Gestión de Controles y Salvaguardas (CRUD).
 - [x] 3.4. Lógica de "No Aplica" (N/A).
+- [x] 3.5. Actualización de Esquema (Clientes, Roles).
+- [x] 3.6. Autenticación (JWT, Login, Middleware).
+- [x] 3.7. Creación de Proyectos Vinculados.
+- [x] 3.8. Gestión de Clientes (UI, Logos, Usuarios).
+- [x] 3.9. RBAC y Seguridad (Protección de Rutas).
 
 ## 📎 Fase 4: Gestión de Archivos
 - [ ] 4.1. Configurar Multer (Backend) para subida de archivos.
@@ -65,3 +70,47 @@
   - `PATCH /applicability` (Lógica N/A)
   - `POST /activities`, `PATCH /activities/:id` (Status)
 - **Datos**: Actualización de `seed.js` con Control 1 de CIS v8.1 en español.
+
+### 📅 Bitácora de Cambios (02/12/2025)
+
+### ✅ Seguridad y RBAC
+- **Autenticación Completa**: Login funcional con JWT.
+- **Roles de Usuario**: `admin` (Super Administrador) y `client_viewer` (Auditor Cliente).
+- **Gestión de Clientes**: Módulo para crear empresas, subir logos y crear usuarios asociados.
+- **Protección de Rutas**: Middleware `auth` que protege endpoints críticos.
+- **Filtrado de Datos**: Los usuarios clientes solo ven sus propios proyectos.
+- **Frontend Seguro**: Inyección de `x-auth-token` en todas las peticiones fetch.
+
+### ✅ Debug y Verificación (02/12/2025)
+- [x] **Debug**: Resolver error "no funciona" reportado al levantar el entorno (Fix: Mismatch de JWT Secret).
+- [x] **Verificación**: Probar login con usuario cliente y validar permisos.
+
+## 🔗 Fase 3.5: Vinculación y Gestión Avanzada (NUEVO)
+- [x] 3.5.1. **Vincular Proyectos a Clientes**:
+  - Backend: `createProject` recibe `clientId`.
+  - Frontend: Dropdown de empresas en "Nuevo Proyecto".
+- [ ] 3.5.2. **Gestión de Usuarios por Cliente**:
+  - Frontend: Activar botón "Crear Usuario" en `ClientsView`.
+  - Backend: Conectar con `createClientUser`.
+  - Resultado: Login funcional para auditor@cliente.com.
+
+## 📝 Fase 3.6: Enriquecimiento de Actividades
+- [ ] 3.6.1. **Detalle de Actividad**:
+  - Backend: Campos `periodicity` y `comments`.
+  - Frontend: Panel Lateral (Slide-over) al hacer clic en actividad.
+  - Features: Selector de periodicidad, Chat/Comentarios, Historial.
+
+## ✏️ Fase 3.7: Mejoras de Usabilidad (NUEVO)
+- [ ] 3.7.1. **Edición de Elementos Manuales**:
+  - Backend: Endpoints PUT para Controles, Salvaguardas y Actividades.
+  - Frontend: Botón "Editar" (Lápiz) en AuditView.
+- [ ] 3.7.2. **Mejora Visual Toggle**:
+  - Frontend: Toggle Naranja (Activo) / Gris (Inactivo).
+
+## 🛡️ Fase 4: Refinamiento de Evidencias y Políticas
+- [ ] 4.1. **Lógica de Política Madre**:
+  - Backend: Validar peso de "Política General" en porcentaje global.
+- [ ] 4.2. **Descarga de Evidencias**:
+  - Frontend: Asegurar descarga para usuario cliente.
+- [ ] 4.3. **Gestión de Archivos (Continuación)**:
+  - Configurar Multer/Storage (ya iniciado).

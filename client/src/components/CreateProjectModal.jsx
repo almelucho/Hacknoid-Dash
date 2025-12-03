@@ -12,11 +12,26 @@ export default function CreateProjectModal({ onClose, onProjectCreated }) {
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-    // Cargar lista de clientes al abrir
+    // 1. CARGAR CLIENTES (CON SEGURIDAD)
     useEffect(() => {
-        fetch(`${API_URL}/api/clients`)
-            .then(res => res.json())
-            .then(data => setClients(data))
+        const token = localStorage.getItem('token');
+
+        fetch(`${API_URL}/api/clients`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-auth-token': token // <--- ¡ESTA ES LA CORRECCIÓN!
+            }
+        })
+            .then(res => {
+                if (res.status === 401) return []; // Si no autorizado, lista vacía
+                return res.json();
+            })
+            .then(data => {
+                if (Array.isArray(data)) {
+                    setClients(data);
+                }
+            })
             .catch(err => console.error("Error cargando clientes:", err));
     }, []);
 
@@ -25,16 +40,21 @@ export default function CreateProjectModal({ onClose, onProjectCreated }) {
         if (!formData.clientId) return alert("Por favor selecciona una empresa");
 
         setLoading(true);
+        const token = localStorage.getItem('token'); // Token para crear también
+
         try {
             const res = await fetch(`${API_URL}/api/projects`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token // <--- Token aquí también
+                },
                 body: JSON.stringify(formData)
             });
 
             if (res.ok) {
-                onProjectCreated(); // Notificar éxito
-                onClose(); // Cerrar modal
+                onProjectCreated();
+                onClose();
             } else {
                 alert("Error al crear el proyecto");
             }
@@ -76,7 +96,9 @@ export default function CreateProjectModal({ onClose, onProjectCreated }) {
                             ))}
                         </select>
                         {clients.length === 0 && (
-                            <p className="text-xs text-red-500 mt-1">No hay clientes. Ve a "Clientes" y crea uno primero.</p>
+                            <p className="text-xs text-red-500 mt-1">
+                                No se encontraron empresas. Ve a "Gestión Clientes" para crear una.
+                            </p>
                         )}
                     </div>
 
