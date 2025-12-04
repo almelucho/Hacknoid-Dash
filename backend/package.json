@@ -1,14 +1,19 @@
 {
-    "name": "audit-dashboard-backend",
+    "name": "audit-backend",
     "version": "1.0.0",
+    "description": "API Local para Auditoría CIS",
     "main": "src/api.js",
     "scripts": {
         "start": "node src/api.js",
         "dev": "nodemon src/api.js"
     },
     "dependencies": {
+        "@google/generative-ai": "^0.24.1",
         "cors": "^2.8.5",
-        "express": "^4.18.2"
+        "dotenv": "^17.2.3",
+        "express": "^4.18.2",
+        "multer": "^1.4.5-lts.1",
+        "uuid": "^9.0.1"
     },
     "devDependencies": {
         "nodemon": "^3.0.1"
