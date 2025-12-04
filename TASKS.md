@@ -7,10 +7,10 @@
 - [x] 0.4. Configurar `Dockerfile` Backend.
 - [x] 0.5. Configurar `Dockerfile` Frontend.
 - [x] 0.6. Validar que los contenedores levantan (`docker-compose up`).
-- [ ] 0.7. Configurar protección de rama `main` en GitHub (Manual).
-- [ ] 0.8. Sincronizar repositorio remoto:
-  - [ ] Ejecutar: `git push -u origin main`
-  - [ ] Ejecutar: `git push -u origin develop`
+- [x] 0.7. Configurar protección de rama `main` en GitHub (Manual).
+- [x] 0.8. Sincronizar repositorio remoto:
+  - [x] Ejecutar: `git push -u origin main`
+  - [x] Ejecutar: `git push -u origin develop`
 
 ## 🧠 Fase 1: El Cerebro de Datos (Backend Core)
 - [x] 1.1. Configurar conexión MongoDB (Mongoose).
