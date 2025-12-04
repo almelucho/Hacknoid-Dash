@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Circle, Plus, Trash2, ToggleLeft, ToggleRight, FileText, Shield, BookOpen, Paperclip, Pencil } from 'lucide-react';
+import ActivityDetailModal from './ActivityDetailModal';
 
 export default function AuditView({ projectId, onBack }) {
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
     const [expandedControl, setExpandedControl] = useState(null);
+    const [selectedActivity, setSelectedActivity] = useState(null);
+    const [selectedIds, setSelectedIds] = useState(null);
 
     // Estados Inputs
     const [newGeneralPolicyTitle, setNewGeneralPolicyTitle] = useState("");
@@ -347,7 +350,19 @@ export default function AuditView({ projectId, onBack }) {
                                                     {sg.activities.map(act => (
                                                         <div key={act._id} className="bg-white p-2 rounded border mb-2 shadow-sm">
                                                             <div className="flex justify-between items-center">
-                                                                <span className="text-sm flex-1">{act.title}</span>
+                                                                <div
+                                                                    className="flex-1 pr-4 cursor-pointer hover:opacity-70"
+                                                                    onClick={() => {
+                                                                        setSelectedActivity(act);
+                                                                        setSelectedIds({ projectId, controlId: control._id, safeguardId: sg._id });
+                                                                    }}
+                                                                >
+                                                                    <h5 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                                                                        {act.title}
+                                                                        {act.periodicity && <span className="text-[10px] bg-blue-100 text-blue-700 px-1 rounded">{act.periodicity}</span>}
+                                                                    </h5>
+                                                                    {act.comments?.length > 0 && <span className="text-[10px] text-gray-400 flex items-center gap-1"><MessageSquare size={10} /> {act.comments.length}</span>}
+                                                                </div>
                                                                 <div className="flex gap-2 items-center">
                                                                     <button onClick={() => handleActivityStatus(control._id, sg._id, act._id, act.status)} className={`px-2 py-1 rounded text-[10px] border ${getStatusConfig(act.status).classes}`}>{getStatusConfig(act.status).label}</button>
                                                                     <label className="cursor-pointer text-gray-400 hover:text-blue-500"><input type="file" className="hidden" onChange={(e) => handleUpload(e, `/api/projects/${projectId}/controls/${control._id}/safeguards/${sg._id}/activities/${act._id}/evidence`)} /><Paperclip size={14} /></label>
@@ -390,6 +405,14 @@ export default function AuditView({ projectId, onBack }) {
                     </button>
                 </div>
             </div>
+
+            {selectedActivity && selectedIds && (
+                <ActivityDetailModal
+                    activity={selectedActivity} ids={selectedIds}
+                    onClose={() => setSelectedActivity(null)}
+                    onUpdate={() => { fetchProject(); setSelectedActivity(null); }}
+                />
+            )}
         </div>
     );
 }

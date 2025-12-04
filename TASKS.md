@@ -7,6 +7,10 @@
 - [x] 0.4. Configurar `Dockerfile` Backend.
 - [x] 0.5. Configurar `Dockerfile` Frontend.
 - [x] 0.6. Validar que los contenedores levantan (`docker-compose up`).
+- [ ] 0.7. Configurar protección de rama `main` en GitHub (Manual).
+- [ ] 0.8. Sincronizar repositorio remoto:
+  - [ ] Ejecutar: `git push -u origin main`
+  - [ ] Ejecutar: `git push -u origin develop`
 
 ## 🧠 Fase 1: El Cerebro de Datos (Backend Core)
 - [x] 1.1. Configurar conexión MongoDB (Mongoose).
@@ -89,22 +93,6 @@
 - [x] 3.5.1. **Vincular Proyectos a Clientes**:
   - Backend: `createProject` recibe `clientId`.
   - Frontend: Dropdown de empresas en "Nuevo Proyecto".
-- [ ] 3.5.2. **Gestión de Usuarios por Cliente**:
-  - Frontend: Activar botón "Crear Usuario" en `ClientsView`.
-  - Backend: Conectar con `createClientUser`.
-  - Resultado: Login funcional para auditor@cliente.com.
-
-## 📝 Fase 3.6: Enriquecimiento de Actividades
-- [ ] 3.6.1. **Detalle de Actividad**:
-  - Backend: Campos `periodicity` y `comments`.
-  - Frontend: Panel Lateral (Slide-over) al hacer clic en actividad.
-  - Features: Selector de periodicidad, Chat/Comentarios, Historial.
-
-## ✏️ Fase 3.7: Mejoras de Usabilidad (NUEVO)
-- [x] 3.7.1. **Edición de Elementos Manuales**:
-  - [x] Backend: Endpoints PUT para Controles, Salvaguardas y Actividades.
-  - [x] Backend: Endpoints PUT para Políticas Generales y de Control.
-  - [x] Frontend: Botón "Editar" (Lápiz) en AuditView (Todo).
 - [x] 3.7.2. **Mejora Visual Toggle**:
   - [x] Frontend: Toggle Naranja (Activo) / Gris (Inactivo).
 - [x] 3.7.3. **Gestión de Clientes (CRUD Completo)**:
@@ -113,6 +101,12 @@
 - [x] 3.7.4. **Gestión de Proyectos (CRUD Completo)**:
   - [x] Backend: Endpoints PUT y DELETE para Proyectos.
   - [x] Frontend: Botones Editar y Eliminar en ProjectCard.
+
+## 📅 Fase 3.8: Seguimiento Recurrente (Bitácora)
+- [ ] 3.8.1. **Bitácora de Ejecuciones**:
+  - Backend: Schema `Execution` (Periodo, Estado, Evidencia).
+  - Frontend: Tabla de ejecuciones en `ActivityDetailModal`.
+  - Features: Reemplazo de Excel para controles periódicos.
 
 ## 🛡️ Fase 4: Refinamiento de Evidencias y Políticas
 - [ ] 4.1. **Lógica de Política Madre**:

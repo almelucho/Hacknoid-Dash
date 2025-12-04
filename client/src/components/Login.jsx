@@ -40,8 +40,8 @@ export default function Login({ onLogin }) {
                     <div className="bg-brand-light w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                         <ShieldCheck className="text-brand-orange" size={32} />
                     </div>
-                    <h2 className="text-2xl font-bold text-brand-dark">Bienvenido Auditor</h2>
-                    <p className="text-gray-500 text-sm">Plataforma de Gestión CIS v8.1</p>
+                    <h2 className="text-2xl font-bold text-brand-dark">Hacknoid CIS Control Panel</h2>
+                    <p className="text-gray-500 text-sm">Plataforma de Gestión de Ciberseguridad</p>
                 </div>
 
                 {error && (

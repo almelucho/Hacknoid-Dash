@@ -42,5 +42,7 @@ router.put('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:
 router.patch('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId', projectController.updateActivityStatus);
 router.post('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/evidence', upload.single('file'), projectController.uploadActivityEvidence);
 router.delete('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId', projectController.deleteActivity);
+router.patch('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/details', auth, projectController.updateActivityDetails); // Detalles (Periodicidad)
+router.post('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/comments', auth, projectController.addActivityComment); // Comentarios (Chat)
 
 module.exports = router;

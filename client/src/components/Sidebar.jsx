@@ -13,7 +13,10 @@ export default function Sidebar({ onLogout, onNavigate }) {
                 <div className="bg-brand-orange p-2 rounded-lg">
                     <ShieldCheck size={24} />
                 </div>
-                <h1 className="font-bold text-lg tracking-wide">HACKNOID <span className="text-brand-orange">DASH</span></h1>
+                <h1 className="font-bold text-lg tracking-wide flex flex-col leading-none">
+                    <span>HACKNOID</span>
+                    <span className="text-brand-orange text-xs">CIS CONTROL PANEL</span>
+                </h1>
             </div>
 
             {/* Navegación */}

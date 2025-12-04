@@ -715,3 +715,43 @@ exports.deleteProject = async (req, res) => {
         res.status(500).json({ msg: "Error al eliminar proyecto" });
     }
 };
+// 11. ACTUALIZAR DETALLES (Periodicidad)
+exports.updateActivityDetails = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId } = req.params;
+        const { periodicity } = req.body;
+        const project = await Project.findById(projectId);
+        const activity = project.controls.id(controlId).safeguards.id(safeguardId).activities.id(activityId);
+        if (periodicity) activity.periodicity = periodicity;
+        await project.save();
+        res.json(project);
+    } catch (error) { res.status(500).send('Error updating details'); }
+};
+
+// 12. AGREGAR COMENTARIO (Chat)
+exports.addActivityComment = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId } = req.params;
+        const { text } = req.body;
+        // req.user viene del token. Si no hay token (dev), usamos "Anónimo"
+        const user = req.user || { name: "Usuario", role: "admin" };
+
+        const project = await Project.findById(projectId);
+        const activity = project.controls.id(controlId).safeguards.id(safeguardId).activities.id(activityId);
+
+        if (!activity.comments) activity.comments = []; // Ensure comments array exists
+
+        activity.comments.push({
+            user: user.name,
+            role: user.role,
+            text: text,
+            createdAt: new Date()
+        });
+
+        await project.save();
+        res.json(project);
+    } catch (error) {
+        console.error(error);
+        res.status(500).send('Error adding comment');
+    }
+};
