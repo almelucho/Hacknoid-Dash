@@ -8,6 +8,18 @@ const CommentSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+// ---------------------
+
+// NUEVO ESQUEMA PARA EJECUCIONES PERIÓDICAS
+const ExecutionSchema = new mongoose.Schema({
+    period: String, // Ej: "Semana 42 - 2025", "Octubre 2025"
+    status: { type: Number, enum: [0, 50, 100], default: 0 },
+    comment: String,
+    evidenceUrl: String, // Archivo específico de esta ejecución
+    executedBy: String,  // Usuario que lo hizo
+    executedAt: { type: Date, default: Date.now }
+});
+
 // Nivel 3: Actividad
 const ActivitySchema = new mongoose.Schema({
     title: { type: String, required: true },
@@ -20,6 +32,11 @@ const ActivitySchema = new mongoose.Schema({
         enum: ['Única', 'Semanal', 'Mensual', 'Trimestral', 'Anual'],
         default: 'Única'
     },
+
+    // --- NUEVO CAMPO ---
+    executions: [ExecutionSchema],
+    // -------------------
+
     comments: [CommentSchema], // Caja de comentarios
     // ---------------------
 

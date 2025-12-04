@@ -45,4 +45,8 @@ router.delete('/:projectId/controls/:controlId/safeguards/:safeguardId/activitie
 router.patch('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/details', auth, projectController.updateActivityDetails); // Detalles (Periodicidad)
 router.post('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/comments', auth, projectController.addActivityComment); // Comentarios (Chat)
 
+// BITÁCORA DE EJECUCIONES
+router.post('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/executions', auth, projectController.addExecution);
+router.post('/:projectId/controls/:controlId/safeguards/:safeguardId/activities/:activityId/executions/:executionId/evidence', upload.single('file'), projectController.uploadExecutionEvidence);
+
 module.exports = router;

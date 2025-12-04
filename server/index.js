@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -18,7 +19,8 @@ mongoose.connect(process.env.MONGO_URI)
 // Routes
 app.use('/api/projects', require('./routes/projectRoutes'));
 app.use('/api/auth', require('./routes/auth'));
-app.use('/api/clients', require('./routes/clients')); // <--- AGREGAR ESTO
+app.use('/api/clients', require('./routes/clients'));
+app.use('/api/ai', require('./routes/ai')); // <--- NUEVA RUTA
 
 app.get('/', (req, res) => {
   res.send('🚀 Hacknoid API v1.0 is running inside Docker!');

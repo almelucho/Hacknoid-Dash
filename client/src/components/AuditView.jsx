@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Circle, Plus, Trash2, ToggleLeft, ToggleRight, FileText, Shield, BookOpen, Paperclip, Pencil } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, CheckCircle, AlertCircle, Circle, Plus, Trash2, ToggleLeft, ToggleRight, FileText, Shield, BookOpen, Paperclip, Pencil, MessageSquare, Download } from 'lucide-react';
 import ActivityDetailModal from './ActivityDetailModal';
+import ChatWidget from './ChatWidget';
+import { generateAuditReport } from '../utils/reportGenerator';
 
 export default function AuditView({ projectId, onBack }) {
     const [project, setProject] = useState(null);
@@ -240,7 +242,20 @@ export default function AuditView({ projectId, onBack }) {
                     <h2 className="text-2xl font-bold text-brand-dark">{project.clientName}</h2>
                     <p className="text-sm text-gray-500">{project.projectName}</p>
                 </div>
-                <div className="text-right"><div className="text-xs font-bold text-gray-400">GLOBAL</div><div className="text-3xl font-bold text-brand-orange">{project.globalPercentage}%</div></div>
+                <div className="text-right px-4 flex flex-col items-end gap-2">
+                    <div>
+                        <div className="text-xs font-bold text-gray-400 uppercase">Global</div>
+                        <div className="text-3xl font-bold text-brand-orange">{project.globalPercentage}%</div>
+                    </div>
+
+                    {/* BOTÓN DE REPORTE */}
+                    <button
+                        onClick={() => generateAuditReport(project)}
+                        className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-50 hover:text-brand-dark transition-colors shadow-sm"
+                    >
+                        <Download size={14} /> PDF
+                    </button>
+                </div>
             </div>
 
             {/* 1. Políticas Generales */}
@@ -413,6 +428,8 @@ export default function AuditView({ projectId, onBack }) {
                     onUpdate={() => { fetchProject(); setSelectedActivity(null); }}
                 />
             )}
+
+            <ChatWidget projectId={projectId} />
         </div>
     );
 }

@@ -7,6 +7,8 @@ const CisTemplateSchema = new mongoose.Schema({
         originalId: String, // e.g., "1.1"
         title: String,
         description: String,
+        assetType: String,
+        securityFunction: String,
         implementationGroups: {
             ig1: Boolean,
             ig2: Boolean,

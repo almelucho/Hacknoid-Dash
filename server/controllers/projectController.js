@@ -140,41 +140,44 @@ exports.uploadGeneralPolicyEvidence = async (req, res) => {
     }
 };
 
-// 1. CREAR PROYECTO
+// 1. CREAR PROYECTO (CARGA TOTAL POR DEFECTO)
 exports.createProject = async (req, res) => {
     try {
+        console.log("🚀 Iniciando creación de proyecto...");
         const { clientId, projectName, targetProfile } = req.body;
-
-        if (!clientId) {
-            return res.status(400).json({ msg: "Error: Debes seleccionar un cliente." });
-        }
+        console.log("Datos recibidos:", { clientId, projectName, targetProfile });
 
         // Validar Cliente
         const client = await Client.findById(clientId);
         if (!client) {
-            return res.status(404).json({ msg: "Error: El cliente seleccionado no existe." });
+            console.log("❌ Cliente no encontrado");
+            return res.status(404).json({ msg: "Cliente no encontrado" });
         }
+        console.log("✅ Cliente encontrado:", client.name);
 
-        // Obtener Molde
+        // Obtener Molde Maestro
         const templates = await CisTemplate.find().sort({ controlNumber: 1 });
+        console.log(`📚 Plantillas encontradas: ${templates?.length}`);
+
         if (!templates || templates.length === 0) {
-            return res.status(500).json({ msg: "Error Crítico: Falta seed de datos." });
+            return res.status(500).json({ msg: "⚠️ Error Crítico: No hay plantillas CIS. Ejecuta 'node seed.js'" });
         }
 
-        const projectControls = templates.map(template => {
-            // Filtrar por IG
-            const validSafeguards = template.safeguards.filter(sg => {
-                if (targetProfile === 'IG3') return sg.implementationGroups.ig3;
-                if (targetProfile === 'IG2') return sg.implementationGroups.ig2;
-                return sg.implementationGroups.ig1;
-            });
+        // Construir la estructura del Proyecto (SIN FILTROS)
+        console.log("🛠️ Construyendo estructura del proyecto...");
+        const projectControls = templates.map((template, index) => {
+            // console.log(`Procesando template ${index + 1}: ${template.title}`);
 
-            const mappedSafeguards = validSafeguards.map(sg => ({
+            // Mapeamos DIRECTAMENTE todas las salvaguardas del molde
+            // No importa si son IG1, IG2 o IG3, las traemos todas.
+            const allSafeguards = (template.safeguards || []).map(sg => ({
                 templateRef: sg.originalId,
                 title: sg.title,
                 description: sg.description,
-                implementationGroup: targetProfile,
-                isApplicable: true,
+                // Guardamos qué IG era originalmente por si sirve de referencia visual, 
+                // pero ya no lo usamos para filtrar.
+                implementationGroup: sg.implementationGroups?.ig1 ? 'IG1' : (sg.implementationGroups?.ig2 ? 'IG2' : 'IG3'),
+                isApplicable: true, // Por defecto, todo aplica
                 activities: [],
                 percentage: 0
             }));
@@ -182,22 +185,27 @@ exports.createProject = async (req, res) => {
             return {
                 controlNumber: template.controlNumber,
                 title: template.title,
+                // Política del Control (Viene vacía lista para llenar)
                 controlPolicies: [{
                     title: `Política de ${template.title}`,
-                    description: "Documento oficial del control.",
+                    description: "Documento oficial que rige este control.",
                     status: 0,
                     evidenceFiles: []
                 }],
-                safeguards: mappedSafeguards,
+                safeguards: allSafeguards, // <--- Aquí va la lista completa
                 percentage: 0
             };
         });
 
+        console.log("✅ Estructura construida. Creando instancia de Proyecto...");
+
+        // Crear el Proyecto
         const newProject = new Project({
             clientId: client._id,
             clientName: client.name,
             projectName,
-            targetProfile,
+            targetProfile: targetProfile || "Full CIS v8.1", // Nombre informativo
+            // Política General (Viene vacía lista para llenar)
             generalPolicies: [{
                 title: "Política General de Seguridad de la Información",
                 status: 0,
@@ -207,18 +215,21 @@ exports.createProject = async (req, res) => {
             globalPercentage: 0
         });
 
+        console.log("💾 Guardando proyecto en base de datos...");
+        // Guardar y Vincular
         await newProject.save();
+        console.log("✅ Proyecto guardado. Vinculando a cliente...");
 
-        // Vincular al cliente
         if (!client.projects) client.projects = [];
         client.projects.push(newProject._id);
         await client.save();
+        console.log("✅ Cliente actualizado. Enviando respuesta.");
 
         res.status(201).json(newProject);
 
     } catch (error) {
-        console.error("Error creando proyecto:", error);
-        res.status(500).send('Error en el servidor');
+        console.error("❌ Error CRÍTICO creando proyecto:", error);
+        res.status(500).send('Error en el servidor al crear proyecto: ' + error.message);
     }
 };
 
@@ -754,4 +765,51 @@ exports.addActivityComment = async (req, res) => {
         console.error(error);
         res.status(500).send('Error adding comment');
     }
+};
+
+// 13. REGISTRAR EJECUCIÓN PERIÓDICA
+exports.addExecution = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId } = req.params;
+        const { period, status, comment } = req.body;
+        const user = req.user || { name: "Anónimo" };
+
+        const project = await Project.findById(projectId);
+        const activity = project.controls.id(controlId).safeguards.id(safeguardId).activities.id(activityId);
+
+        activity.executions.push({
+            period,
+            status,
+            comment,
+            executedBy: user.name,
+            executedAt: new Date()
+        });
+
+        // Opcional: Actualizar el estado global de la actividad al de la última ejecución
+        activity.status = status;
+
+        await recalculatePercentages(project, project.controls.id(controlId), project.controls.id(controlId).safeguards.id(safeguardId));
+        await project.save();
+
+        res.json(project);
+    } catch (error) { res.status(500).send('Error adding execution'); }
+};
+
+// 14. SUBIR EVIDENCIA DE EJECUCIÓN
+exports.uploadExecutionEvidence = async (req, res) => {
+    try {
+        const { projectId, controlId, safeguardId, activityId, executionId } = req.params;
+        if (!req.file) return res.status(400).send('No file');
+
+        const project = await Project.findById(projectId);
+        const activity = project.controls.id(controlId).safeguards.id(safeguardId).activities.id(activityId);
+        const execution = activity.executions.id(executionId);
+
+        if (!execution) return res.status(404).send('Ejecución no encontrada');
+
+        execution.evidenceUrl = `/uploads/${req.file.filename}`;
+        await project.save();
+        res.json(project);
+
+    } catch (error) { res.status(500).send('Error uploading execution evidence'); }
 };

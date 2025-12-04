@@ -5,6 +5,7 @@ const ClientSchema = new mongoose.Schema({
     logoUrl: { type: String }, // URL del logo subido
     contactName: String,
     contactEmail: String,
+    projects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Project' }],
     createdAt: { type: Date, default: Date.now }
 });
 
